@@ -1,0 +1,31 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Mod Manager
+GenericName=Game Mod Manager
+Comment=Менеджер модів для XXMI/ZZMI (Zenless Zone Zero, Genshin Impact, Star Rail)
+Comment[uk]=Менеджер модів для XXMI/ZZMI
+Comment[en]=Mod Manager for XXMI/ZZMI games
+
+# Шлях до виконуваного файлу (буде замінено при встановленні)
+Exec=/usr/bin/mod-manager
+Icon=mod-manager
+Terminal=false
+
+# Категорії
+Categories=Game;Utility;
+
+# Ключові слова для пошуку
+Keywords=mod;manager;zzmi;xxmi;genshin;zenless;game;
+
+# Підтримка різних мов
+Name[uk]=Менеджер Модів
+Name[en]=Mod Manager
+Name[ru]=Менеджер Модов
+
+# MIME types (якщо потрібно)
+MimeType=
+
+# Додаткова інформація
+StartupNotify=true
+StartupWMClass=mod-manager

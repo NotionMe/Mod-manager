@@ -1,0 +1,55 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/character_info.dart';
+
+// Zoom scale provider
+final zoomScaleProvider = StateProvider<double>((ref) => 1.0);
+
+// Tab index provider
+final tabIndexProvider = StateProvider<int>((ref) => 0);
+
+// Characters list
+final charactersProvider = StateProvider<List<CharacterInfo>>((ref) => []);
+
+// Selected character index
+final selectedCharacterIndexProvider = StateProvider<int>((ref) => 0);
+
+// Current mods list (all mods)
+final modsProvider = StateProvider<List<ModInfo>>((ref) => []);
+
+// Search query provider
+final searchQueryProvider = StateProvider<String>((ref) => '');
+
+// Filtered characters based on search
+final filteredCharactersProvider = Provider<List<CharacterInfo>>((ref) {
+  final characters = ref.watch(charactersProvider);
+  final query = ref.watch(searchQueryProvider);
+
+  if (query.isEmpty) {
+    return characters;
+  }
+
+  return characters.where((character) {
+    return character.name.toLowerCase().contains(query.toLowerCase()) ||
+        character.id.toLowerCase().contains(query.toLowerCase());
+  }).toList();
+});
+
+// Skins for selected character
+final currentCharacterSkinsProvider = Provider<List<ModInfo>>((ref) {
+  final characters = ref.watch(charactersProvider);
+  final selectedIndex = ref.watch(selectedCharacterIndexProvider);
+
+  if (characters.isEmpty || selectedIndex >= characters.length) {
+    return [];
+  }
+
+  return characters[selectedIndex].skins;
+}); // Theme mode provider (dark/light)
+final isDarkModeProvider = StateProvider<bool>((ref) => true);
+
+// Settings providers
+final modsPathProvider = StateProvider<String>((ref) => '');
+final autoRefreshProvider = StateProvider<bool>((ref) => false);
+
+// View mode: grid or carousel
+final isGridViewProvider = StateProvider<bool>((ref) => true);
