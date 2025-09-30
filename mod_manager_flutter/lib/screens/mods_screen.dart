@@ -72,7 +72,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> {
             return CharacterInfo(
               id: charId,
               name: getCharacterDisplayName(charId),
-              iconPath: 'assets/characters/\$charId.png',
+              iconPath: 'assets/characters/$charId.png',
               skins: characterMods[charId] ?? [],
             );
           })
@@ -317,9 +317,6 @@ class _ModsScreenState extends ConsumerState<ModsScreen> {
     bool isSelected,
     double sss,
   ) {
-    final iconFile = File(character.iconPath ?? '');
-    final hasIcon = iconFile.existsSync();
-
     return GestureDetector(
       onTap: () {
         ref.read(selectedCharacterIndexProvider.notifier).state = index;
@@ -352,8 +349,21 @@ class _ModsScreenState extends ConsumerState<ModsScreen> {
                     : null,
               ),
               child: ClipOval(
-                child: hasIcon
-                    ? Image.file(iconFile, fit: BoxFit.cover)
+                child: character.iconPath != null
+                    ? Image.asset(
+                        character.iconPath!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey.withOpacity(0.3),
+                            child: Icon(
+                              Icons.person,
+                              size: 40 * sss,
+                              color: Colors.white,
+                            ),
+                          );
+                        },
+                      )
                     : Container(
                         color: Colors.grey.withOpacity(0.3),
                         child: Icon(
