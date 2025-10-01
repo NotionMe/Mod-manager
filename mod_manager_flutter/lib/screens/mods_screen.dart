@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +25,17 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
   late AnimationController _loadingAnimationController;
   late Animation<double> _loadingAnimation;
 
+  // Debounce timers to prevent rapid rebuilds
+  Timer? _rebuildDebounce;
+  Timer? _characterSelectionDebounce;
+
+  // Prevent multiple simultaneous operations
+  bool _isOperationInProgress = false;
+  bool _isLoadingMods = false;
+
+  // Cache for preventing unnecessary rebuilds
+  List<CharacterInfo>? _lastCharactersState;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +57,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
   @override
   void dispose() {
     _loadingAnimationController.dispose();
+    _rebuildDebounce?.cancel();
+    _characterSelectionDebounce?.cancel();
     super.dispose();
   }
 
@@ -67,6 +81,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
   }
 
   Future<void> loadMods() async {
+    // Prevent multiple simultaneous load operations
+    if (_isLoadingMods) return;
+    _isLoadingMods = true;
+
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -123,33 +141,61 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
           .where((char) => char.skins.isNotEmpty)
           .toList();
 
-      ref.read(charactersProvider.notifier).state = characters;
+      // Only update state if it actually changed to prevent unnecessary rebuilds
+      if (_charactersActuallyChanged(characters)) {
+        _lastCharactersState = List.from(characters);
+        ref.read(charactersProvider.notifier).state = characters;
+      }
       setState(() => isLoading = false);
     } catch (e) {
       setState(() {
         errorMessage = e.toString();
         isLoading = false;
       });
+    } finally {
+      _isLoadingMods = false;
     }
   }
 
   Future<void> toggleMod(ModInfo mod) async {
+    // Prevent multiple simultaneous operations
+    if (_isOperationInProgress) return;
+    _isOperationInProgress = true;
+
+    // Cancel any pending debounce
+    _rebuildDebounce?.cancel();
+
     try {
       final wasActive = mod.isActive;
-      await ApiService.toggleMod(mod.id);
-      await loadMods();
+      final activationMode = ref.read(activationModeProvider);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(wasActive ? 'Деактивовано' : 'Активовано'),
-            duration: const Duration(milliseconds: 800),
-            behavior: SnackBarBehavior.floating,
-            width: 200,
-          ),
-        );
+      // If activating a mod in single mode, deactivate other active mods for this character
+      if (!wasActive && activationMode == ActivationMode.single) {
+        await _deactivateOtherModsForCharacter(mod.characterId, excludeModId: mod.id);
       }
+
+      await ApiService.toggleMod(mod.id);
+
+      // Longer debounce to prevent rapid blinking - increased to 300ms
+      _rebuildDebounce = Timer(const Duration(milliseconds: 300), () async {
+        if (mounted) {
+          await loadMods();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(wasActive ? 'Деактивовано' : 'Активовано'),
+                duration: const Duration(milliseconds: 800),
+                behavior: SnackBarBehavior.floating,
+                width: 200,
+              ),
+            );
+          }
+        }
+        _isOperationInProgress = false;
+      });
     } catch (e) {
+      _isOperationInProgress = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Помилка: $e'), backgroundColor: Colors.red),
@@ -459,6 +505,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                         style: const TextStyle(fontSize: 12, color: Color(0xFF6366F1), fontWeight: FontWeight.w600),
                       ),
                     ),
+                    const Spacer(),
+                    // Mode toggle buttons
+                    _buildModeToggle(),
                   ],
                 ),
               ),
@@ -490,6 +539,39 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
             ],
           ),
         ),
+        // Counter for active mods
+        if (currentSkins.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Text(
+                  'Активні моди',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${currentSkins.where((mod) => mod.isActive).length}/${currentSkins.length}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF10B981),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         // Моди для вибраного персонажа
         Expanded(
           child: currentSkins.isEmpty
@@ -595,7 +677,13 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
         
         return GestureDetector(
           onTap: () {
-            ref.read(selectedCharacterIndexProvider.notifier).state = index;
+            // Cancel any pending character selection
+            _characterSelectionDebounce?.cancel();
+            _characterSelectionDebounce = Timer(const Duration(milliseconds: 250), () {
+              if (mounted) {
+                ref.read(selectedCharacterIndexProvider.notifier).state = index;
+              }
+            });
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
@@ -607,8 +695,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
-                  width: 60,
-                  height: 60,
+                  width: 50,
+                  height: 50,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
@@ -632,26 +720,27 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(
                               color: Colors.grey.withOpacity(0.2),
-                              child: Icon(Icons.person, size: 30, color: Colors.grey[600]),
+                              child: Icon(Icons.person, size: 25, color: Colors.grey[600]),
                             ),
                           )
                         : Container(
                             color: Colors.grey.withOpacity(0.2),
-                            child: Icon(Icons.person, size: 30, color: Colors.grey[600]),
+                            child: Icon(Icons.person, size: 25, color: Colors.grey[600]),
                           ),
                   ),
                 ),
                 if (isSelected || isHovering) ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     character.name,
                     style: TextStyle(
-                      fontSize: 11, 
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
                       color: isHovering ? const Color(0xFF10B981) : null,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ],
@@ -665,8 +754,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
   Widget _buildModCard(ModInfo mod) {
     final isDarkMode = ref.watch(isDarkModeProvider);
 
-    return Draggable<ModInfo>(
+    return LongPressDraggable<ModInfo>(
       data: mod,
+      delay: const Duration(milliseconds: 500), // Затримка 0.5 секунди перед початком drag
+      hapticFeedbackOnStart: true,
       feedback: Material(
         elevation: 8,
         borderRadius: BorderRadius.circular(12),
@@ -722,12 +813,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
         opacity: 0.5,
         child: _buildModCardContent(mod, isDarkMode),
       ),
-      child: GestureDetector(
-        onTap: () => toggleMod(mod),
-        onSecondaryTapDown: (details) {
-          _showContextMenu(context, mod, details.globalPosition);
-        },
-        child: _buildModCardContent(mod, isDarkMode),
+      child: Tooltip(
+        message: 'Натисніть та утримуйте для перетягування\nКлікніть для активації',
+        child: GestureDetector(
+          onTap: () => toggleMod(mod),
+          onSecondaryTapDown: (details) {
+            _showContextMenu(context, mod, details.globalPosition);
+          },
+          child: _buildModCardContent(mod, isDarkMode),
+        ),
       ),
     );
   }
@@ -847,4 +941,122 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       return 'Unknown';
     }
   }
+
+  Widget _buildModeToggle() {
+    final activationMode = ref.watch(activationModeProvider);
+    final isDarkMode = ref.watch(isDarkModeProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+        ),
+      ),
+      child: Row(
+        children: [
+          _buildModeButton(
+            label: 'Single',
+            isActive: activationMode == ActivationMode.single,
+            onTap: () {
+              // Cancel any pending operations when switching modes
+              _rebuildDebounce?.cancel();
+              _characterSelectionDebounce?.cancel();
+              _isOperationInProgress = false;
+              ref.read(activationModeProvider.notifier).state = ActivationMode.single;
+            },
+          ),
+          _buildModeButton(
+            label: 'Multi',
+            isActive: activationMode == ActivationMode.multi,
+            onTap: () {
+              // Cancel any pending operations when switching modes
+              _rebuildDebounce?.cancel();
+              _characterSelectionDebounce?.cancel();
+              _isOperationInProgress = false;
+              ref.read(activationModeProvider.notifier).state = ActivationMode.multi;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeButton({
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isActive
+            ? const Color(0xFF0EA5E9)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isActive ? Colors.white : Colors.grey[600],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _charactersActuallyChanged(List<CharacterInfo> newCharacters) {
+    if (_lastCharactersState == null) return true;
+    if (_lastCharactersState!.length != newCharacters.length) return true;
+
+    for (int i = 0; i < newCharacters.length; i++) {
+      final oldChar = _lastCharactersState![i];
+      final newChar = newCharacters[i];
+
+      if (oldChar.id != newChar.id ||
+          oldChar.name != newChar.name ||
+          oldChar.skins.length != newChar.skins.length) {
+        return true;
+      }
+
+      // Check if any mod states changed
+      for (int j = 0; j < newChar.skins.length; j++) {
+        if (oldChar.skins[j].id != newChar.skins[j].id ||
+            oldChar.skins[j].isActive != newChar.skins[j].isActive ||
+            oldChar.skins[j].name != newChar.skins[j].name) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _deactivateOtherModsForCharacter(String characterId, {String? excludeModId}) async {
+    try {
+      final characters = ref.read(charactersProvider);
+      final character = characters.firstWhere(
+        (char) => char.id == characterId,
+        orElse: () => CharacterInfo(id: '', name: '', iconPath: null, skins: []),
+      );
+
+      if (character.id.isNotEmpty) {
+        final activeMods = character.skins.where((mod) => mod.isActive && mod.id != excludeModId).toList();
+        for (final mod in activeMods) {
+          await ApiService.toggleMod(mod.id);
+        }
+      }
+    } catch (e) {
+      // Handle error silently
+    }
+  }
+
 }
