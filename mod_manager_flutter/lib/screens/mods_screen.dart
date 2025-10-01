@@ -7,6 +7,7 @@ import '../models/character_info.dart';
 import '../services/api_service.dart';
 import '../utils/state_providers.dart';
 import '../utils/zzz_characters.dart';
+import '../utils/path_helper.dart';
 
 class ModsScreen extends ConsumerStatefulWidget {
   const ModsScreen({super.key});
@@ -67,7 +68,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> {
           }
         }
 
-        final localImagePath = '../assets/mod_images/${oldMod.id}.png';
+        final localImagePath = path.join(PathHelper.getModImagesPath(), '${oldMod.id}.png');
         final localImageFile = File(localImagePath);
         final imagePath = await localImageFile.exists()
             ? localImagePath
@@ -138,10 +139,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen> {
     try {
       final imageBytes = await Pasteboard.image;
       if (imageBytes != null) {
-        final appDir = Directory('../assets/mod_images');
-        if (!await appDir.exists()) {
-          await appDir.create(recursive: true);
-        }
+        // Ensure the directory exists
+        await PathHelper.ensureModImagesDirectoryExists();
+        final appDir = Directory(PathHelper.getModImagesPath());
 
         final imagePath = path.join(appDir.path, '${mod.id}.png');
         final file = File(imagePath);

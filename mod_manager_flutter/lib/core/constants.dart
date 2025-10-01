@@ -36,8 +36,9 @@ class AppConstants {
     'icon.png',
   ];
   
-  // Paths
+  // Paths (note: assetsCharactersPath is relative to Flutter assets bundle)
   static const String assetsCharactersPath = 'assets/characters/';
-  static const String assetsModImagesPath = '../assets/mod_images';
+  // Note: For mod_images path, use PathHelper.getModImagesPath() instead
+  // of a hardcoded constant, as it needs to work in different environments
   static const String configFileName = 'config.json';
 }
