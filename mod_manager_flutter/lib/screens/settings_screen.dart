@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/api_service.dart';
 import '../utils/state_providers.dart';
@@ -65,196 +64,220 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         saveModsPath: _saveModsPathController.text,
       );
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Збережено')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Configuration saved'),
+            behavior: SnackBarBehavior.floating,
+            width: 200,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Помилка: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final sss = ref.watch(zoomScaleProvider);
     final isDarkMode = ref.watch(isDarkModeProvider);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        top: 100 * sss,
-        left: 40 * sss,
-        right: 40 * sss,
-        bottom: 20 * sss,
-      ),
-      child: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionTitle('Шляхи до папок', sss),
-                  SizedBox(height: 20 * sss),
-
-                  _buildPathSetting(
-                    label: 'SaveMods Path',
-                    controller: _modsPathController,
-                    onPickPath: pickModsPath,
-                    sss: sss,
-                  ),
-
-                  SizedBox(height: 30 * sss),
-
-                  _buildPathSetting(
-                    label: 'Mods Path',
-                    controller: _saveModsPathController,
-                    onPickPath: pickSaveModsPath,
-                    sss: sss,
-                  ),
-
-                  SizedBox(height: 40 * sss),
-
-                  _buildSectionTitle('Зовнішній вигляд', sss),
-                  SizedBox(height: 20 * sss),
-
-                  _buildSettingRow(
-                    'Темна тема',
-                    Switch(
-                      value: isDarkMode,
-                      onChanged: (value) {
-                        ref.read(isDarkModeProvider.notifier).state = value;
-                      },
-                    ),
-                    sss,
-                  ),
-
-                  SizedBox(height: 20 * sss),
-
-                  _buildSettingRow(
-                    'Масштаб інтерфейсу',
-                    Slider(
-                      value: sss,
-                      min: 0.8,
-                      max: 1.5,
-                      divisions: 7,
-                      label: '${(sss * 100).round()}%',
-                      onChanged: (value) {
-                        ref.read(zoomScaleProvider.notifier).state = value;
-                      },
-                    ),
-                    sss,
-                  ),
-
-                  SizedBox(height: 40 * sss),
-
-                  Center(
-                    child: SizedBox(
-                      width: 200 * sss,
-                      height: 50 * sss,
-                      child: ElevatedButton.icon(
-                        onPressed: saveConfig,
-                        icon: Icon(Icons.save, size: 20 * sss),
-                        label: Text(
-                          'Зберегти',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16 * sss,
-                            fontWeight: FontWeight.w600,
-                          ),
+    return Column(
+      children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: Border(
+              bottom: BorderSide(
+                color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+              ),
+            ),
+          ),
+          child: const Row(
+            children: [
+              Text(
+                'Settings',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+        // Content
+        Expanded(
+          child: isLoading
+              ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Paths Section
+                      _buildSectionTitle('Mod Directories'),
+                      const SizedBox(height: 16),
+                      _buildPathField(
+                        label: 'SaveMods Path',
+                        hint: 'Path where original mods are stored',
+                        controller: _modsPathController,
+                        onBrowse: pickModsPath,
+                        isDarkMode: isDarkMode,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildPathField(
+                        label: 'Mods Path',
+                        hint: 'Path where symlinks will be created',
+                        controller: _saveModsPathController,
+                        onBrowse: pickSaveModsPath,
+                        isDarkMode: isDarkMode,
+                      ),
+                      const SizedBox(height: 32),
+                      // Appearance Section
+                      _buildSectionTitle('Appearance'),
+                      const SizedBox(height: 16),
+                      _buildSettingRow(
+                        label: 'Dark Mode',
+                        trailing: Switch(
+                          value: isDarkMode,
+                          onChanged: (value) {
+                            ref.read(isDarkModeProvider.notifier).state = value;
+                          },
+                          activeColor: const Color(0xFF6366F1),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25 * sss),
+                        isDarkMode: isDarkMode,
+                      ),
+                      const SizedBox(height: 32),
+                      // Save Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: saveConfig,
+                          icon: const Icon(Icons.save_outlined, size: 18),
+                          label: const Text('Save Configuration'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF6366F1),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      // Info Card
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1).withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFF6366F1).withOpacity(0.1),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 20,
+                              color: const Color(0xFF6366F1),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'This app uses symbolic links to safely manage mods without copying files.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
+        ),
+      ],
     );
   }
 
-  Widget _buildSectionTitle(String title, double sss) {
+  Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: GoogleFonts.poppins(
-        fontSize: 20 * sss,
+      style: const TextStyle(
+        fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: Colors.white,
+        letterSpacing: 0.5,
       ),
     );
   }
 
-  Widget _buildPathSetting({
+  Widget _buildPathField({
     required String label,
+    required String hint,
     required TextEditingController controller,
-    required VoidCallback onPickPath,
-    required double sss,
+    required VoidCallback onBrowse,
+    required bool isDarkMode,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: GoogleFonts.poppins(
-            fontSize: 14 * sss,
-            color: Colors.white.withOpacity(0.7),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[600],
           ),
         ),
-        SizedBox(height: 8 * sss),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 15 * sss),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(10 * sss),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.2),
-                    width: 1,
-                  ),
-                ),
-                child: TextField(
-                  controller: controller,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13 * sss,
-                    color: Colors.white,
-                  ),
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Виберіть папку...',
-                    hintStyle: GoogleFonts.poppins(
-                      fontSize: 13 * sss,
-                      color: Colors.white.withOpacity(0.3),
+              child: TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  hintText: hint,
+                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
                     ),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF6366F1)),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  isDense: true,
                 ),
+                style: const TextStyle(fontSize: 13),
               ),
             ),
-            SizedBox(width: 10 * sss),
-            ElevatedButton(
-              onPressed: onPickPath,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white.withOpacity(0.1),
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(
-                  horizontal: 20 * sss,
-                  vertical: 15 * sss,
-                ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: onBrowse,
+              icon: const Icon(Icons.folder_outlined, size: 18),
+              label: const Text('Browse'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10 * sss),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ),
-              child: Text(
-                'Вибрати',
-                style: GoogleFonts.poppins(fontSize: 13 * sss),
               ),
             ),
           ],
@@ -263,20 +286,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildSettingRow(String label, Widget trailing, double sss) {
+  Widget _buildSettingRow({
+    required String label,
+    required Widget trailing,
+    required bool isDarkMode,
+  }) {
     return Container(
-      padding: EdgeInsets.all(15 * sss),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(10 * sss),
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
-            style: GoogleFonts.poppins(fontSize: 14 * sss, color: Colors.white),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
           trailing,
         ],

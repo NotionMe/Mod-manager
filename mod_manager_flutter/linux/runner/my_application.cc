@@ -56,6 +56,28 @@ static void my_application_activate(GApplication *application)
 
   gtk_window_set_default_size(window, 1000, 700);
 
+  // Set window icon from installed location
+  GError *error = nullptr;
+  const gchar *icon_paths[] = {
+    "assets/icon.png",                    // When running from build directory
+    "../assets/icon.png",                 // When running from installed location
+    "/opt/mod-manager/assets/icon.png",   // System-wide installation
+    "/usr/share/pixmaps/mod-manager.png", // Standard pixmaps location
+    nullptr
+  };
+  
+  for (int i = 0; icon_paths[i] != nullptr; i++) {
+    GdkPixbuf *icon = gdk_pixbuf_new_from_file(icon_paths[i], &error);
+    if (icon != nullptr) {
+      gtk_window_set_icon(window, icon);
+      gtk_window_set_default_icon(icon);  // Set as default for all windows
+      g_object_unref(icon);
+      break;
+    } else if (error != nullptr) {
+      g_clear_error(&error);
+    }
+  }
+
   // Set window size constraints
   GdkGeometry geometry;
   geometry.min_width = 900;
