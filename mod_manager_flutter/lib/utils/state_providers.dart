@@ -19,7 +19,7 @@ final modsProvider = StateProvider<List<ModInfo>>((ref) => []);
 // Search query provider
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
-// Filtered characters based on search
+// Filtered characters based on search - optimized with select
 final filteredCharactersProvider = Provider<List<CharacterInfo>>((ref) {
   final characters = ref.watch(charactersProvider);
   final query = ref.watch(searchQueryProvider);
@@ -28,19 +28,20 @@ final filteredCharactersProvider = Provider<List<CharacterInfo>>((ref) {
     return characters;
   }
 
+  final lowerQuery = query.toLowerCase();
   return characters.where((character) {
-    return character.name.toLowerCase().contains(query.toLowerCase()) ||
-        character.id.toLowerCase().contains(query.toLowerCase());
+    return character.name.toLowerCase().contains(lowerQuery) ||
+        character.id.toLowerCase().contains(lowerQuery);
   }).toList();
 });
 
-// Skins for selected character
+// Skins for selected character - optimized
 final currentCharacterSkinsProvider = Provider<List<ModInfo>>((ref) {
   final characters = ref.watch(charactersProvider);
   final selectedIndex = ref.watch(selectedCharacterIndexProvider);
 
-  if (characters.isEmpty || selectedIndex >= characters.length) {
-    return [];
+  if (characters.isEmpty || selectedIndex < 0 || selectedIndex >= characters.length) {
+    return const [];
   }
 
   return characters[selectedIndex].skins;

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import '../core/constants.dart';
 import '../models/character_info.dart';
 import '../services/api_service.dart';
 import '../utils/state_providers.dart';
@@ -176,8 +177,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
       await ApiService.toggleMod(mod.id);
 
-      // Longer debounce to prevent rapid blinking - increased to 300ms
-      _rebuildDebounce = Timer(const Duration(milliseconds: 300), () async {
+      // Longer debounce to prevent rapid blinking
+      _rebuildDebounce = Timer(AppConstants.modToggleDebounceDelay, () async {
         if (mounted) {
           await loadMods();
 
@@ -185,7 +186,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(wasActive ? 'Деактивовано' : 'Активовано'),
-                duration: const Duration(milliseconds: 800),
+                duration: AppConstants.snackBarDuration,
                 behavior: SnackBarBehavior.floating,
                 width: 200,
               ),
@@ -489,20 +490,27 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(AppConstants.defaultPadding),
                 child: Row(
                   children: [
-                    const Text('Персонажі', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    Text('Персонажі', style: TextStyle(fontSize: AppConstants.headerTextSize, fontWeight: FontWeight.w600)),
                     const SizedBox(width: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppConstants.smallPadding,
+                        vertical: AppConstants.tinyPadding,
+                      ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
+                        color: const Color(AppConstants.activeModBorderColor).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppConstants.smallPadding),
                       ),
                       child: Text(
                         '${characters.length}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF6366F1), fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: AppConstants.captionTextSize,
+                          color: const Color(AppConstants.activeModBorderColor),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     const Spacer(),
@@ -519,14 +527,14 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                     : AnimationLimiter(
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: EdgeInsets.symmetric(horizontal: AppConstants.defaultPadding),
                           itemCount: characters.length,
                           itemBuilder: (context, index) {
                             return AnimationConfiguration.staggeredList(
                               position: index,
-                              duration: const Duration(milliseconds: 375),
+                              duration: AppConstants.fastAnimationDuration,
                               child: SlideAnimation(
-                                horizontalOffset: 50.0,
+                                horizontalOffset: 30.0,
                                 child: FadeInAnimation(
                                   child: _buildCharacterCard(characters[index], index, index == selectedIndex),
                                 ),
@@ -542,29 +550,35 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
         // Counter for active mods
         if (currentSkins.isNotEmpty)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppConstants.defaultPadding,
+              vertical: AppConstants.smallPadding,
+            ),
             child: Row(
               children: [
                 Text(
                   'Активні моди',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: AppConstants.titleTextSize,
                     fontWeight: FontWeight.w500,
                     color: Colors.grey[600],
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: AppConstants.smallMargin),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppConstants.smallPadding,
+                    vertical: AppConstants.tinyPadding,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(AppConstants.activeModCountColor).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppConstants.smallPadding),
                   ),
                   child: Text(
                     '${currentSkins.where((mod) => mod.isActive).length}/${currentSkins.length}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF10B981),
+                    style: TextStyle(
+                      fontSize: AppConstants.captionTextSize,
+                      color: const Color(AppConstants.activeModCountColor),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -589,24 +603,24 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                   ),
                 )
               : Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(AppConstants.defaultPadding),
                   child: Center(
                     child: SizedBox(
-                      height: 420,
+                      height: AppConstants.modCardImageHeight + 100, // Image height + text area
                       child: AnimationLimiter(
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
                           itemCount: currentSkins.length,
                           itemBuilder: (context, index) {
                             return AnimationConfiguration.staggeredList(
                               position: index,
-                              duration: const Duration(milliseconds: 375),
+                              duration: AppConstants.fastAnimationDuration,
                               child: SlideAnimation(
-                                horizontalOffset: 100.0,
+                                horizontalOffset: 50.0,
                                 child: FadeInAnimation(
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
                                     child: _buildModCard(currentSkins[index]),
                                   ),
                                 ),
@@ -677,40 +691,49 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
         
         return GestureDetector(
           onTap: () {
-            // Cancel any pending character selection
-            _characterSelectionDebounce?.cancel();
-            _characterSelectionDebounce = Timer(const Duration(milliseconds: 250), () {
-              if (mounted) {
-                ref.read(selectedCharacterIndexProvider.notifier).state = index;
-              }
-            });
+            // Immediate response for character selection - no debounce needed
+            if (mounted) {
+              ref.read(selectedCharacterIndexProvider.notifier).state = index;
+            }
           },
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
+            duration: AppConstants.fastAnimationDuration,
             curve: Curves.easeInOut,
-            margin: const EdgeInsets.only(right: 12),
+            margin: EdgeInsets.only(right: AppConstants.characterCardMarginRight),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
+                  duration: AppConstants.fastAnimationDuration,
                   curve: Curves.easeInOut,
-                  width: 50,
-                  height: 50,
+                  width: AppConstants.characterCardWidth,
+                  height: AppConstants.characterCardHeight,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isHovering 
-                          ? const Color(0xFF10B981) 
-                          : isSelected 
-                              ? const Color(0xFF6366F1) 
+                      color: isHovering
+                          ? const Color(AppConstants.activeModCountColor)
+                          : isSelected
+                              ? const Color(AppConstants.activeModBorderColor)
                               : Colors.grey.withOpacity(0.3),
-                      width: isHovering ? 4 : isSelected ? 3 : 2,
+                      width: isHovering
+                          ? AppConstants.characterCardBorderWidthHover
+                          : isSelected
+                              ? AppConstants.characterCardBorderWidthSelected
+                              : AppConstants.characterCardBorderWidth,
                     ),
                     boxShadow: isHovering
-                        ? [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.4), blurRadius: 16, spreadRadius: 3)]
+                        ? [BoxShadow(
+                            color: const Color(AppConstants.activeModCountColor).withOpacity(0.4),
+                            blurRadius: AppConstants.characterCardBlurRadius,
+                            spreadRadius: AppConstants.characterCardSpreadRadiusHover,
+                          )]
                         : isSelected
-                            ? [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 12, spreadRadius: 2)]
+                            ? [BoxShadow(
+                                color: const Color(AppConstants.activeModBorderColor).withOpacity(0.3),
+                                blurRadius: AppConstants.characterCardBlurRadius,
+                                spreadRadius: AppConstants.characterCardSpreadRadiusSelected,
+                              )]
                             : null,
                   ),
                   child: ClipOval(
@@ -720,23 +743,31 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(
                               color: Colors.grey.withOpacity(0.2),
-                              child: Icon(Icons.person, size: 25, color: Colors.grey[600]),
+                              child: Icon(
+                                Icons.person,
+                                size: AppConstants.characterCardWidth * 0.5,
+                                color: Colors.grey[600],
+                              ),
                             ),
                           )
                         : Container(
                             color: Colors.grey.withOpacity(0.2),
-                            child: Icon(Icons.person, size: 25, color: Colors.grey[600]),
+                            child: Icon(
+                              Icons.person,
+                              size: AppConstants.characterCardWidth * 0.5,
+                              color: Colors.grey[600],
+                            ),
                           ),
                   ),
                 ),
                 if (isSelected || isHovering) ...[
-                  const SizedBox(height: 4),
+                  SizedBox(height: AppConstants.tinyPadding),
                   Text(
                     character.name,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: AppConstants.smallCaptionTextSize,
                       fontWeight: FontWeight.w600,
-                      color: isHovering ? const Color(0xFF10B981) : null,
+                      color: isHovering ? const Color(AppConstants.activeModCountColor) : null,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -756,26 +787,26 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
     return LongPressDraggable<ModInfo>(
       data: mod,
-      delay: const Duration(milliseconds: 500), // Затримка 0.5 секунди перед початком drag
+      delay: AppConstants.dragDelay,
       hapticFeedbackOnStart: true,
       feedback: Material(
-        elevation: 8,
-        borderRadius: BorderRadius.circular(12),
+        elevation: AppConstants.dragFeedbackElevation,
+        borderRadius: BorderRadius.circular(AppConstants.modCardBorderRadius),
         child: Container(
-          width: 200,
-          height: 150,
+          width: AppConstants.modCardWidth * 0.5, // Slightly smaller for feedback
+          height: AppConstants.modCardImageHeight * 0.75,
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppConstants.modCardBorderRadius),
             border: Border.all(
-              color: const Color(0xFF6366F1),
-              width: 2,
+              color: const Color(AppConstants.activeModBorderColor),
+              width: AppConstants.modCardBorderWidthActive,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6366F1).withOpacity(0.3),
-                blurRadius: 16,
-                spreadRadius: 2,
+                color: const Color(AppConstants.activeModBorderColor).withOpacity(0.3),
+                blurRadius: AppConstants.modCardBlurRadiusActive,
+                spreadRadius: AppConstants.modCardSpreadRadiusActive,
               ),
             ],
           ),
@@ -810,7 +841,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
         ),
       ),
       childWhenDragging: Opacity(
-        opacity: 0.5,
+        opacity: AppConstants.dragFeedbackOpacity,
         child: _buildModCardContent(mod, isDarkMode),
       ),
       child: Tooltip(
@@ -828,23 +859,25 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
   Widget _buildModCardContent(ModInfo mod, bool isDarkMode) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+      duration: AppConstants.fastAnimationDuration,
       curve: Curves.easeInOut,
-      width: 260,
+      width: AppConstants.modCardWidth,
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppConstants.modCardBorderRadius),
         border: Border.all(
           color: mod.isActive
-              ? const Color(0xFF6366F1)
+              ? const Color(AppConstants.activeModBorderColor)
               : (isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
-          width: mod.isActive ? 2 : 1,
+          width: mod.isActive ? AppConstants.modCardBorderWidthActive : AppConstants.modCardBorderWidthInactive,
         ),
         boxShadow: [
           BoxShadow(
-            color: mod.isActive ? const Color(0xFF6366F1).withOpacity(0.2) : Colors.black.withOpacity(0.05),
-            blurRadius: mod.isActive ? 12 : 8,
-            spreadRadius: mod.isActive ? 1 : 0,
+            color: mod.isActive
+                ? const Color(AppConstants.activeModBorderColor).withOpacity(0.2)
+                : Colors.black.withOpacity(0.05),
+            blurRadius: mod.isActive ? AppConstants.modCardBlurRadiusActive : AppConstants.modCardBlurRadiusInactive,
+            spreadRadius: mod.isActive ? AppConstants.modCardSpreadRadiusActive : 0,
           ),
         ],
       ),
@@ -917,10 +950,13 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
           ),
           // Назва моду
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(AppConstants.smallPadding),
             child: Text(
               mod.name,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: AppConstants.bodyTextSize,
+                fontWeight: FontWeight.w500,
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),

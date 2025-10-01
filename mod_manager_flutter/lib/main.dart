@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:io';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'core/constants.dart';
 import 'screens/mods_screen.dart';
 import 'screens/settings_screen.dart';
 import 'utils/state_providers.dart';
@@ -11,10 +11,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
 
-  WindowOptions windowOptions = const WindowOptions(
-    size: Size(1000, 700),
-    minimumSize: Size(900, 600),
-    maximumSize: Size(1200, 800),
+  WindowOptions windowOptions = WindowOptions(
+    size: Size(AppConstants.defaultWindowWidth.toDouble(), AppConstants.defaultWindowHeight.toDouble()),
+    minimumSize: Size(AppConstants.minWindowWidth.toDouble(), AppConstants.minWindowHeight.toDouble()),
+    maximumSize: Size(AppConstants.maxWindowWidth.toDouble(), AppConstants.maxWindowHeight.toDouble()),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,

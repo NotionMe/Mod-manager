@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import '../core/constants.dart';
 import '../services/api_service.dart';
 import '../utils/state_providers.dart';
 
@@ -107,7 +108,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
       children: [
         // Header
         Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(AppConstants.defaultPadding * 1.5),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             border: Border(
@@ -116,11 +117,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
               ),
             ),
           ),
-          child: const Row(
+          child: Row(
             children: [
               Text(
                 'Settings',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: AppConstants.headerTextSize + 4,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
