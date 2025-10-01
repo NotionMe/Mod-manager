@@ -222,6 +222,108 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
     }
   }
 
+  Future<void> _reloadMods() async {
+    if (_isOperationInProgress) return;
+    
+    setState(() {
+      _isOperationInProgress = true;
+    });
+
+    try {
+      final modManagerService = await ref.read(modManagerServiceProvider.future);
+      final success = await modManagerService.reloadMods();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  success ? Icons.check_circle : Icons.error,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(success ? 'Моди перезавантажені (F10)' : 'Помилка перезавантаження'),
+              ],
+            ),
+            backgroundColor: success ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            width: 300,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Помилка: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isOperationInProgress = false;
+      });
+    }
+  }
+
+  Widget _buildF10ReloadButton() {
+    return Tooltip(
+      message: 'Перезавантажити моди (F10)',
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0EA5E9).withOpacity(0.3),
+              blurRadius: 8,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _isOperationInProgress ? null : _reloadMods,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedRotation(
+                    turns: _isOperationInProgress ? 1 : 0,
+                    duration: const Duration(milliseconds: 1000),
+                    child: Icon(
+                      Icons.refresh,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'F10',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _pasteImageFromClipboard(ModInfo mod) async {
     try {
       final imageBytes = await Pasteboard.image;
@@ -531,6 +633,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                       ),
                     ),
                     const Spacer(),
+                    // F10 Reload button
+                    _buildF10ReloadButton(),
+                    const SizedBox(width: 12),
                     // Mode toggle buttons
                     _buildModeToggle(),
                   ],

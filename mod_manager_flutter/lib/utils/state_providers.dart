@@ -1,5 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/character_info.dart';
+import '../services/api_service.dart';
+import '../services/mod_manager_service.dart';
+
+// API Service Provider
+final modManagerServiceProvider = FutureProvider<ModManagerService>((ref) async {
+  return await ApiService.getModManagerService();
+});
 
 // Zoom scale provider
 final zoomScaleProvider = StateProvider<double>((ref) => 1.0);

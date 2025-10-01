@@ -3,10 +3,12 @@ import 'package:path/path.dart' as path;
 import '../models/character_info.dart';
 import '../core/constants.dart';
 import 'config_service.dart';
+import 'f10_reload_service.dart';
 
 /// Головний сервіс для керування модами через symbolic links
 class ModManagerService {
   final ConfigService _configService;
+  final F10ReloadService _f10ReloadService = F10ReloadService();
 
   ModManagerService(this._configService);
 
@@ -126,6 +128,9 @@ class ModManagerService {
       await Link(dstPath).create(srcPath, recursive: false);
       await _configService.addActiveMod(modName);
 
+      // Автоматично перезавантажуємо моди після активації
+      await _f10ReloadService.reloadMods(saveModsPath);
+
       return true;
     } catch (e) {
       return false;
@@ -145,6 +150,9 @@ class ModManagerService {
 
       await Link(linkPath).delete();
       await _configService.removeActiveMod(modName);
+
+      // Автоматично перезавантажуємо моди після деактивації
+      await _f10ReloadService.reloadMods(saveModsPath);
 
       return true;
     } catch (e) {
@@ -173,6 +181,21 @@ class ModManagerService {
     } catch (e) {
       return null;
     }
+  }
+
+  /// Ручне перезавантаження модів (натискання F10)
+  Future<bool> reloadMods() async {
+    return await _f10ReloadService.reloadMods(saveModsPath);
+  }
+
+  /// Показує інструкції налаштування F10 сервісу
+  void showF10SetupInstructions() {
+    _f10ReloadService.showSetupInstructions();
+  }
+
+  /// Встановлює залежності для F10 сервісу
+  Future<void> installF10Dependencies() async {
+    await _f10ReloadService.installDependencies();
   }
 
   Future<void> _safeRemove(String filePath) async {

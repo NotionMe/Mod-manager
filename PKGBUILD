@@ -1,6 +1,6 @@
 # Maintainer: NotionMe <c.ubohyi.stanislav@student.uzhnu.edu.ua>
 pkgname=zzz-mod-manager-git
-pkgver=r4.6b91be6
+pkgver=r6.967f969
 pkgrel=1
 pkgdesc="Modern mod manager for Zenless Zone Zero using Flutter"
 arch=('x86_64')

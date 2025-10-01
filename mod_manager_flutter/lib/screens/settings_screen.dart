@@ -215,6 +215,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                             isDarkMode: isDarkMode,
                           ),
                           const SizedBox(height: 32),
+                          // F10 Reload Section
+                          _buildSectionTitle('F10 Mod Reload'),
+                          const SizedBox(height: 16),
+                          _buildF10Section(isDarkMode),
+                          const SizedBox(height: 32),
                           // Appearance Section
                           _buildSectionTitle('Appearance'),
                           const SizedBox(height: 16),
@@ -284,6 +289,282 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _buildF10Section(bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[850] : Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.keyboard,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Автоматичне перезавантаження модів',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Цей додаток автоматично відправляє F10 для перезавантаження модів у 3DMigoto/XXMI після їх активації/деактивації.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildRequirement('✓', 'XXMI Launcher встановлений і налаштований', Colors.green),
+          const SizedBox(height: 8),
+          _buildRequirement('✓', 'У d3dx.ini: reload_fixes = no_modifiers VK_F10', Colors.green),
+          const SizedBox(height: 8),
+          _buildRequirement('⚡', 'Рекомендується: xdotool (X11) або ydotool (Wayland)', Colors.orange),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _installF10Dependencies,
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('Встановити залежності'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF0EA5E9),
+                    side: const BorderSide(color: Color(0xFF0EA5E9)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _showF10Instructions,
+                  icon: const Icon(Icons.help_outline, size: 16),
+                  label: const Text('Показати інструкції'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0EA5E9),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequirement(String icon, String text, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 20,
+          alignment: Alignment.center,
+          child: Text(
+            icon,
+            style: TextStyle(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[600],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _installF10Dependencies() async {
+    final modManagerService = await ref.read(modManagerServiceProvider.future);
+    await modManagerService.installF10Dependencies();
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Перевірте термінал для інструкцій встановлення'),
+          backgroundColor: Color(0xFF0EA5E9),
+        ),
+      );
+    }
+  }
+
+  void _showF10Instructions() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Налаштування F10'),
+        content: SizedBox(
+          width: 600,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '1. Встановіть XXMI Launcher:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text('github.com/SpectrumQT/XXMI-Installer'),
+                const SizedBox(height: 16),
+                const Text(
+                  '2. Переконайтеся що у d3dx.ini є рядок:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'reload_fixes = no_modifiers VK_F10',
+                    style: TextStyle(fontFamily: 'monospace'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '3. Встановіть інструменти:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text('Ubuntu/Debian:'),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(top: 4, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'sudo apt install xdotool ydotool wmctrl',
+                    style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '4. Для Wayland - налаштуйте права:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'sudo usermod -a -G input \$USER\nsudo systemctl enable --now ydotool.service\n\n# Потім перезавантажте систему',
+                    style: TextStyle(fontFamily: 'monospace', fontSize: 11),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.orange[700]),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'ВАЖЛИВО для Wayland:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange[900],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Вікно гри має бути ВИДИМИМ (не згорнутим) щоб F10 спрацював!',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.orange[900],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Рекомендований workflow:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text('1. Відкрийте гру', style: TextStyle(fontSize: 13)),
+                const Text('2. Alt+Tab до мод менеджера', style: TextStyle(fontSize: 13)),
+                const Text('3. Активуйте мод', style: TextStyle(fontSize: 13)),
+                const Text('4. Alt+Tab назад до гри', style: TextStyle(fontSize: 13)),
+                const Text('5. ✅ F10 відправиться автоматично', style: TextStyle(fontSize: 13)),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Text(
+                    'Детальні інструкції в файлі WAYLAND_SETUP.md',
+                    style: TextStyle(color: Colors.blue[900], fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Зрозуміло'),
+          ),
+        ],
+      ),
     );
   }
 
