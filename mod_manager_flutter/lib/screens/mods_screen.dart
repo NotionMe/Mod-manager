@@ -588,50 +588,109 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
           ),
         // Моди для вибраного персонажа
         Expanded(
-          child: currentSkins.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        characters.isEmpty ? 'Завантажте моди' : 'Виберіть персонажа',
-                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                )
-              : Padding(
-                  padding: EdgeInsets.all(AppConstants.defaultPadding),
-                  child: Center(
-                    child: SizedBox(
-                      height: AppConstants.modCardImageHeight + 100, // Image height + text area
-                      child: AnimationLimiter(
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
-                          itemCount: currentSkins.length,
-                          itemBuilder: (context, index) {
-                            return AnimationConfiguration.staggeredList(
-                              position: index,
-                              duration: AppConstants.fastAnimationDuration,
-                              child: SlideAnimation(
-                                horizontalOffset: 50.0,
-                                child: FadeInAnimation(
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
-                                    child: _buildModCard(currentSkins[index]),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              // Для старого контенту (що виходить)
+              final isOldWidget = child.key != ValueKey('character_${selectedIndex}_${currentSkins.length}') && 
+                                  child.key != const ValueKey('empty');
+              
+              // Старий контент йде вліво
+              final outOffset = Tween<Offset>(
+                begin: Offset.zero,
+                end: const Offset(-1.0, 0),
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeInCubic,
+              ));
+              
+              // Новий контент приходить справа
+              final inOffset = Tween<Offset>(
+                begin: const Offset(1.0, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              ));
+              
+              // Масштабування для більш плавного ефекту
+              final scaleAnimation = Tween<double>(
+                begin: 0.8,
+                end: 1.0,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              ));
+              
+              return SlideTransition(
+                position: animation.status == AnimationStatus.reverse ? outOffset : inOffset,
+                child: FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: scaleAnimation,
+                    child: child,
                   ),
                 ),
+              );
+            },
+            child: currentSkins.isEmpty
+                ? Center(
+                    key: const ValueKey('empty'),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          characters.isEmpty ? 'Завантажте моди' : 'Виберіть персонажа',
+                          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  )
+                : Padding(
+                    key: ValueKey('character_${selectedIndex}_${currentSkins.length}'),
+                    padding: EdgeInsets.all(AppConstants.defaultPadding),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return AnimationLimiter(
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
+                            itemCount: currentSkins.length,
+                            itemBuilder: (context, index) {
+                              return AnimationConfiguration.staggeredList(
+                                position: index,
+                                duration: const Duration(milliseconds: 500),
+                                delay: Duration(milliseconds: 50 * index),
+                                child: SlideAnimation(
+                                  horizontalOffset: 100.0,
+                                  curve: Curves.easeOutCubic,
+                                  child: FadeInAnimation(
+                                    curve: Curves.easeOut,
+                                    child: ScaleAnimation(
+                                      scale: 0.5,
+                                      curve: Curves.easeOutBack,
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
+                                        child: SizedBox(
+                                          height: constraints.maxHeight,
+                                          child: _buildModCard(currentSkins[index]),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
         ),
       ],
     );
@@ -697,15 +756,17 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
             }
           },
           child: AnimatedContainer(
-            duration: AppConstants.fastAnimationDuration,
-            curve: Curves.easeInOut,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
             margin: EdgeInsets.only(right: AppConstants.characterCardMarginRight),
+            transform: Matrix4.identity()
+              ..scale(isSelected ? 1.05 : (isHovering ? 1.03 : 1.0)),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 AnimatedContainer(
-                  duration: AppConstants.fastAnimationDuration,
-                  curve: Curves.easeInOut,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
                   width: AppConstants.characterCardWidth,
                   height: AppConstants.characterCardHeight,
                   decoration: BoxDecoration(
@@ -729,11 +790,18 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                             spreadRadius: AppConstants.characterCardSpreadRadiusHover,
                           )]
                         : isSelected
-                            ? [BoxShadow(
-                                color: const Color(AppConstants.activeModBorderColor).withOpacity(0.3),
-                                blurRadius: AppConstants.characterCardBlurRadius,
-                                spreadRadius: AppConstants.characterCardSpreadRadiusSelected,
-                              )]
+                            ? [
+                                BoxShadow(
+                                  color: const Color(AppConstants.activeModBorderColor).withOpacity(0.4),
+                                  blurRadius: AppConstants.characterCardBlurRadius + 5,
+                                  spreadRadius: AppConstants.characterCardSpreadRadiusSelected,
+                                ),
+                                BoxShadow(
+                                  color: const Color(AppConstants.activeModBorderColor).withOpacity(0.2),
+                                  blurRadius: AppConstants.characterCardBlurRadius + 10,
+                                  spreadRadius: AppConstants.characterCardSpreadRadiusSelected + 2,
+                                ),
+                              ]
                             : null,
                   ),
                   child: ClipOval(
@@ -760,20 +828,34 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                           ),
                   ),
                 ),
-                if (isSelected || isHovering) ...[
-                  SizedBox(height: AppConstants.tinyPadding),
-                  Text(
-                    character.name,
-                    style: TextStyle(
-                      fontSize: AppConstants.smallCaptionTextSize,
-                      fontWeight: FontWeight.w600,
-                      color: isHovering ? const Color(AppConstants.activeModCountColor) : null,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  child: (isSelected || isHovering)
+                      ? Column(
+                          children: [
+                            SizedBox(height: AppConstants.tinyPadding),
+                            AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOut,
+                              style: TextStyle(
+                                fontSize: AppConstants.smallCaptionTextSize,
+                                fontWeight: FontWeight.w600,
+                                color: isHovering 
+                                    ? const Color(AppConstants.activeModCountColor) 
+                                    : (isSelected ? const Color(AppConstants.activeModBorderColor) : Colors.grey[700]),
+                              ),
+                              child: Text(
+                                character.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
+                ),
               ],
             ),
           ),
