@@ -34,6 +34,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> {
 
     try {
       final loadedMods = await ApiService.getMods();
+      print('📦 Завантажено модів: ${loadedMods.length}');
 
       final Map<String, List<ModInfo>> characterMods = {};
       for (var oldMod in loadedMods) {
@@ -45,6 +46,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> {
             break;
           }
         }
+        print('  🎭 Мод: ${oldMod.name} -> персонаж: $charId');
 
         // Перевіряємо, чи є локальне зображення
         final localImagePath = '../assets/mod_images/${oldMod.id}.png';
@@ -79,6 +81,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen> {
           .where((char) => char.skins.isNotEmpty)
           .toList();
 
+      print('👥 Персонажів з модами: ${characters.length}');
+      for (final char in characters) {
+        print('  ${char.name}: ${char.skins.length} модів');
+      }
+
       ref.read(charactersProvider.notifier).state = characters;
 
       setState(() {
@@ -94,17 +101,26 @@ class _ModsScreenState extends ConsumerState<ModsScreen> {
 
   Future<void> toggleMod(ModInfo mod) async {
     try {
+      // Зберігаємо старий стан ДО переключення
+      final wasActive = mod.isActive;
+
       await ApiService.toggleMod(mod.id);
       await loadMods();
+
       if (mounted) {
+        // Показуємо повідомлення на основі СТАРОГО стану (що було зроблено)
+        final message = wasActive ? 'Деактивовано' : 'Активовано';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(mod.isActive ? 'Деактивовано' : 'Активовано')),
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 1),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Помилка: \$e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Помилка: $e'), backgroundColor: Colors.red),
         );
       }
     }
