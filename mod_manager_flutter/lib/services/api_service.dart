@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/character_info.dart';
 import 'config_service.dart';
 import 'mod_manager_service.dart';
@@ -7,16 +8,21 @@ import 'mod_manager_service.dart';
 class ApiService {
   static ModManagerService? _modManager;
   static ConfigService? _configService;
+  static ProviderContainer? _container;
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({ProviderContainer? container}) async {
     if (_configService == null) {
       final prefs = await SharedPreferences.getInstance();
       _configService = ConfigService(prefs);
       await _configService!.loadFromFile();
     }
 
+    if (container != null) {
+      _container = container;
+    }
+
     if (_modManager == null) {
-      _modManager = ModManagerService(_configService!);
+      _modManager = ModManagerService(_configService!, _container!);
     }
   }
 

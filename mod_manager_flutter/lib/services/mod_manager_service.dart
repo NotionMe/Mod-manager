@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/character_info.dart';
 import '../core/constants.dart';
+import '../utils/state_providers.dart';
 import 'config_service.dart';
 import 'f10_reload_service.dart';
 
@@ -9,8 +11,9 @@ import 'f10_reload_service.dart';
 class ModManagerService {
   final ConfigService _configService;
   final F10ReloadService _f10ReloadService = F10ReloadService();
+  final ProviderContainer _container;
 
-  ModManagerService(this._configService);
+  ModManagerService(this._configService, this._container);
 
   String? get modsPath => _configService.modsPath;
   String? get saveModsPath => _configService.saveModsPath;
@@ -128,8 +131,11 @@ class ModManagerService {
       await Link(dstPath).create(srcPath, recursive: false);
       await _configService.addActiveMod(modName);
 
-      // Автоматично перезавантажуємо моди після активації
-      await _f10ReloadService.reloadMods(saveModsPath);
+      // Автоматично перезавантажуємо моди після активації (якщо увімкнено)
+      final autoF10Enabled = _container.read(autoF10ReloadProvider);
+      if (autoF10Enabled) {
+        await _f10ReloadService.reloadMods(saveModsPath);
+      }
 
       return true;
     } catch (e) {
@@ -151,8 +157,11 @@ class ModManagerService {
       await Link(linkPath).delete();
       await _configService.removeActiveMod(modName);
 
-      // Автоматично перезавантажуємо моди після деактивації
-      await _f10ReloadService.reloadMods(saveModsPath);
+      // Автоматично перезавантажуємо моди після деактивації (якщо увімкнено)
+      final autoF10Enabled = _container.read(autoF10ReloadProvider);
+      if (autoF10Enabled) {
+        await _f10ReloadService.reloadMods(saveModsPath);
+      }
 
       return true;
     } catch (e) {

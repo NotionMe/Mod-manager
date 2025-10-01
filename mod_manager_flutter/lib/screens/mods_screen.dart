@@ -270,6 +270,44 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
     }
   }
 
+  Widget _buildAutoF10Toggle() {
+    final autoF10Enabled = ref.watch(autoF10ReloadProvider);
+
+    return Tooltip(
+      message: autoF10Enabled ? 'Автоматичне F10 увімкнено' : 'Автоматичне F10 вимкнено',
+      child: GestureDetector(
+        onTap: () {
+          ref.read(autoF10ReloadProvider.notifier).state = !autoF10Enabled;
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: autoF10Enabled 
+                ? const Color(0xFF10B981) // Зелений коли увімкнено
+                : const Color(0xFFEF4444), // Червоний коли вимкнено
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: (autoF10Enabled ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withOpacity(0.4),
+                blurRadius: 12,
+                spreadRadius: 1,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(
+            autoF10Enabled ? Icons.power : Icons.power_off,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildF10ReloadButton() {
     return Tooltip(
       message: 'Перезавантажити моди (F10)',
@@ -633,6 +671,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                       ),
                     ),
                     const Spacer(),
+                    // Auto F10 toggle
+                    _buildAutoF10Toggle(),
+                    const SizedBox(width: 12),
                     // F10 Reload button
                     _buildF10ReloadButton(),
                     const SizedBox(width: 12),

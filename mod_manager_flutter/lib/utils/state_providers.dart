@@ -69,3 +69,6 @@ final activationModeProvider = StateProvider<ActivationMode>((ref) => Activation
 
 // Sidebar collapsed state
 final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);
+
+// Auto F10 reload toggle (green = enabled, red = disabled)
+final autoF10ReloadProvider = StateProvider<bool>((ref) => false);

@@ -6,6 +6,7 @@ import 'core/constants.dart';
 import 'screens/mods_screen.dart';
 import 'screens/settings_screen.dart';
 import 'utils/state_providers.dart';
+import 'services/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +35,10 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Ініціалізуємо ApiService з ProviderContainer
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ApiService.initialize(container: ProviderScope.containerOf(context));
+    });
     final isDarkMode = ref.watch(isDarkModeProvider);
 
     return MaterialApp(

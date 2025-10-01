@@ -348,6 +348,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
           const SizedBox(height: 8),
           _buildRequirement('⚡', 'Рекомендується: xdotool (X11) або ydotool (Wayland)', Colors.orange),
           const SizedBox(height: 16),
+          // Auto F10 Status
+          _buildAutoF10Status(isDarkMode),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -405,6 +408,86 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAutoF10Status(bool isDarkMode) {
+    final autoF10Enabled = ref.watch(autoF10ReloadProvider);
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: autoF10Enabled 
+            ? const Color(0xFF10B981).withOpacity(0.1)
+            : const Color(0xFFEF4444).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: autoF10Enabled 
+              ? const Color(0xFF10B981).withOpacity(0.3)
+              : const Color(0xFFEF4444).withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: autoF10Enabled 
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFFEF4444),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: (autoF10Enabled ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withOpacity(0.4),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: Icon(
+              autoF10Enabled ? Icons.power : Icons.power_off,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Автоматичне F10',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDarkMode ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  autoF10Enabled 
+                      ? 'Увімкнено - F10 відправляється автоматично при активації/деактивації модів'
+                      : 'Вимкнено - F10 потрібно натискати вручну',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: autoF10Enabled,
+            onChanged: (value) {
+              ref.read(autoF10ReloadProvider.notifier).state = value;
+            },
+            activeColor: const Color(0xFF10B981),
+            inactiveThumbColor: const Color(0xFFEF4444),
+          ),
+        ],
+      ),
     );
   }
 
