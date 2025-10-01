@@ -2,6 +2,7 @@
 const List<String> zzzCharacters = [
   'anby',
   'nicole',
+  'orphie',
   'billy',
   'nekomata',
   'corin',
@@ -37,6 +38,7 @@ String getCharacterDisplayName(String id) {
   final Map<String, String> displayNames = {
     'anby': 'Anby',
     'nicole': 'Nicole',
+    'orphie': 'Orphie',
     'billy': 'Billy',
     'nekomata': 'Nekomata',
     'corin': 'Corin',
