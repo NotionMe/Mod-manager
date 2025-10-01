@@ -25,6 +25,8 @@ dependencies:
   flutter_riverpod: ^2.6.1
 
   # UI Components
+  animations: ^2.0.11
+  flutter_staggered_animations: ^1.1.1
 
   # HTTP Client
   http: ^1.3.0
@@ -37,6 +39,9 @@ dependencies:
 
   # Clipboard support
   pasteboard: ^0.2.0
+
+  # Window management
+  window_manager: ^0.4.3
 
 dev_dependencies:
   flutter_test:

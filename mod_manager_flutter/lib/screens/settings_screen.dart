@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../services/api_service.dart';
 import '../utils/state_providers.dart';
 
@@ -11,19 +12,33 @@ class SettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProviderStateMixin {
   final _modsPathController = TextEditingController();
   final _saveModsPathController = TextEditingController();
   bool isLoading = false;
+  late AnimationController _loadingAnimationController;
+  late Animation<double> _loadingAnimation;
 
   @override
   void initState() {
     super.initState();
+    _loadingAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _loadingAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _loadingAnimationController,
+      curve: Curves.easeInOut,
+    ));
     loadConfig();
   }
 
   @override
   void dispose() {
+    _loadingAnimationController.dispose();
     _modsPathController.dispose();
     _saveModsPathController.dispose();
     super.dispose();
@@ -113,94 +128,154 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         // Content
         Expanded(
           child: isLoading
-              ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
+              ? Center(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Paths Section
-                      _buildSectionTitle('Mod Directories'),
-                      const SizedBox(height: 16),
-                      _buildPathField(
-                        label: 'SaveMods Path',
-                        hint: 'Path where original mods are stored',
-                        controller: _modsPathController,
-                        onBrowse: pickModsPath,
-                        isDarkMode: isDarkMode,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildPathField(
-                        label: 'Mods Path',
-                        hint: 'Path where symlinks will be created',
-                        controller: _saveModsPathController,
-                        onBrowse: pickSaveModsPath,
-                        isDarkMode: isDarkMode,
-                      ),
-                      const SizedBox(height: 32),
-                      // Appearance Section
-                      _buildSectionTitle('Appearance'),
-                      const SizedBox(height: 16),
-                      _buildSettingRow(
-                        label: 'Dark Mode',
-                        trailing: Switch(
-                          value: isDarkMode,
-                          onChanged: (value) {
-                            ref.read(isDarkModeProvider.notifier).state = value;
-                          },
-                          activeColor: const Color(0xFF6366F1),
-                        ),
-                        isDarkMode: isDarkMode,
-                      ),
-                      const SizedBox(height: 32),
-                      // Save Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: saveConfig,
-                          icon: const Icon(Icons.save_outlined, size: 18),
-                          label: const Text('Save Configuration'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF6366F1),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                      AnimatedBuilder(
+                        animation: _loadingAnimation,
+                        builder: (context, child) {
+                          return Transform.scale(
+                            scale: 0.8 + (_loadingAnimation.value * 0.2),
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
+                                ),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0EA5E9).withOpacity(0.3),
+                                    blurRadius: 20,
+                                    spreadRadius: 5,
+                                  ),
+                                ],
+                              ),
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 3,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
-                      const SizedBox(height: 16),
-                      // Info Card
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1).withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: const Color(0xFF6366F1).withOpacity(0.1),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              size: 20,
-                              color: const Color(0xFF6366F1),
+                      const SizedBox(height: 24),
+                      AnimatedBuilder(
+                        animation: _loadingAnimation,
+                        builder: (context, child) {
+                          return Opacity(
+                            opacity: _loadingAnimation.value,
+                            child: Text(
+                              'Завантаження налаштувань...',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'This app uses symbolic links to safely manage mods without copying files.',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey[600],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                )
+              : AnimationLimiter(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: AnimationConfiguration.toStaggeredList(
+                        duration: const Duration(milliseconds: 375),
+                        childAnimationBuilder: (widget) => SlideAnimation(
+                          verticalOffset: 50.0,
+                          child: FadeInAnimation(child: widget),
+                        ),
+                        children: [
+                          // Paths Section
+                          _buildSectionTitle('Mod Directories'),
+                          const SizedBox(height: 16),
+                          _buildPathField(
+                            label: 'SaveMods Path',
+                            hint: 'Path where original mods are stored',
+                            controller: _modsPathController,
+                            onBrowse: pickModsPath,
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildPathField(
+                            label: 'Mods Path',
+                            hint: 'Path where symlinks will be created',
+                            controller: _saveModsPathController,
+                            onBrowse: pickSaveModsPath,
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 32),
+                          // Appearance Section
+                          _buildSectionTitle('Appearance'),
+                          const SizedBox(height: 16),
+                          _buildSettingRow(
+                            label: 'Dark Mode',
+                            trailing: Switch(
+                              value: isDarkMode,
+                              onChanged: (value) {
+                                ref.read(isDarkModeProvider.notifier).state = value;
+                              },
+                              activeColor: const Color(0xFF0EA5E9),
+                            ),
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 32),
+                          // Save Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: saveConfig,
+                              icon: const Icon(Icons.save_outlined, size: 18),
+                              label: const Text('Save Configuration'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF0EA5E9),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Info Card
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0EA5E9).withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFF0EA5E9).withOpacity(0.1),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 20,
+                                  color: const Color(0xFF0EA5E9),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'This app uses symbolic links to safely manage mods without copying files.',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
         ),
@@ -260,7 +335,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF6366F1)),
+                    borderSide: const BorderSide(color: Color(0xFF0EA5E9)),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   isDense: true,

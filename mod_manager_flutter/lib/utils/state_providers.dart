@@ -53,3 +53,11 @@ final autoRefreshProvider = StateProvider<bool>((ref) => false);
 
 // View mode: grid or carousel
 final isGridViewProvider = StateProvider<bool>((ref) => true);
+
+// Activation mode: single (один скін) або multi (кілька скінів)
+enum ActivationMode { single, multi }
+
+final activationModeProvider = StateProvider<ActivationMode>((ref) => ActivationMode.single);
+
+// Sidebar collapsed state
+final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);

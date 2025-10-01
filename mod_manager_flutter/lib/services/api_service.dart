@@ -38,6 +38,41 @@ class ApiService {
     }
   }
 
+  /// Активує скін для персонажа, автоматично деактивуючи інші скіни цього персонажа
+  static Future<bool> toggleModForCharacter(
+    String modId, 
+    String characterId, 
+    List<ModInfo> characterSkins, 
+    {bool multiMode = false}
+  ) async {
+    try {
+      await initialize();
+      
+      // Знаходимо поточний мод
+      final currentMod = characterSkins.firstWhere((mod) => mod.id == modId);
+      
+      // Якщо мод вже активний, просто деактивуємо його
+      if (currentMod.isActive) {
+        return await _modManager!.deactivateMod(modId);
+      }
+      
+      // У режимі Single - деактивуємо всі інші активні скіни
+      if (!multiMode) {
+        for (final skin in characterSkins) {
+          if (skin.isActive && skin.id != modId) {
+            await _modManager!.deactivateMod(skin.id);
+          }
+        }
+      }
+      // У режимі Multi - просто додаємо до активних
+      
+      // Активуємо новий скін
+      return await _modManager!.activateMod(modId);
+    } catch (e) {
+      throw Exception('Помилка переключення моду для персонажа: $e');
+    }
+  }
+
   static Future<String> clearAll() async {
     try {
       await initialize();
