@@ -15,7 +15,6 @@ void main() async {
   WindowOptions windowOptions = WindowOptions(
     size: Size(AppConstants.defaultWindowWidth.toDouble(), AppConstants.defaultWindowHeight.toDouble()),
     minimumSize: Size(AppConstants.minWindowWidth.toDouble(), AppConstants.minWindowHeight.toDouble()),
-    maximumSize: Size(AppConstants.maxWindowWidth.toDouble(), AppConstants.maxWindowHeight.toDouble()),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,

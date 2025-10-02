@@ -95,6 +95,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
     });
     
     // Перезавантажуємо моди, щоб оновити UI з новими тегами
+    // Це необхідно, бо мод може переміститись в іншу категорію персонажа
     await loadMods();
   }
 
@@ -111,6 +112,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
     try {
       final loadedMods = await ApiService.getMods();
       final Map<String, List<ModInfo>> characterMods = {};
+      final List<ModInfo> allMods = [];
 
       for (var oldMod in loadedMods) {
         // Використовуємо збережений тег або автовизначення
@@ -141,23 +143,42 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
           imagePath: imagePath,
         );
 
+        // Додаємо в загальний список
+        allMods.add(mod);
+
         if (!characterMods.containsKey(charId)) {
           characterMods[charId] = [];
         }
         characterMods[charId]!.add(mod);
       }
 
-      final characters = zzzCharacters
-          .map((charId) {
-            return CharacterInfo(
-              id: charId,
-              name: getCharacterDisplayName(charId),
-              iconPath: 'assets/characters/$charId.png',
-              skins: characterMods[charId] ?? [],
-            );
-          })
-          .where((char) => char.skins.isNotEmpty)
-          .toList();
+      // Створюємо список персонажів, додаючи "ALL" на початок
+      final characters = <CharacterInfo>[];
+      
+      // Додаємо "ALL" персонаж якщо є моди
+      if (allMods.isNotEmpty) {
+        characters.add(CharacterInfo(
+          id: 'all',
+          name: 'ALL',
+          iconPath: null, // Використаємо іконку по замовчуванню
+          skins: allMods,
+        ));
+      }
+      
+      // Додаємо інших персонажів
+      characters.addAll(
+        zzzCharacters
+            .map((charId) {
+              return CharacterInfo(
+                id: charId,
+                name: getCharacterDisplayName(charId),
+                iconPath: 'assets/characters/$charId.png',
+                skins: characterMods[charId] ?? [],
+              );
+            })
+            .where((char) => char.skins.isNotEmpty)
+            .toList()
+      );
 
       // Only update state if it actually changed to prevent unnecessary rebuilds
       if (_charactersActuallyChanged(characters)) {
@@ -194,24 +215,37 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
       await ApiService.toggleMod(mod.id);
 
-      // Longer debounce to prevent rapid blinking
-      _rebuildDebounce = Timer(AppConstants.modToggleDebounceDelay, () async {
-        if (mounted) {
-          await loadMods();
+      // Оновлюємо стан локально без перезавантаження всіх модів
+      if (mounted) {
+        final characters = ref.read(charactersProvider);
+        final updatedCharacters = characters.map((char) {
+          final updatedSkins = char.skins.map((skin) {
+            if (skin.id == mod.id) {
+              return skin.copyWith(isActive: !wasActive);
+            }
+            // Якщо single mode, деактивуємо інші моди того ж персонажа
+            if (!wasActive && activationMode == ActivationMode.single && 
+                skin.characterId == mod.characterId && skin.id != mod.id && skin.isActive) {
+              return skin.copyWith(isActive: false);
+            }
+            return skin;
+          }).toList();
+          return char.copyWith(skins: updatedSkins);
+        }).toList();
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(wasActive ? 'Деактивовано' : 'Активовано'),
-                duration: AppConstants.snackBarDuration,
-                behavior: SnackBarBehavior.floating,
-                width: 200,
-              ),
-            );
-          }
-        }
-        _isOperationInProgress = false;
-      });
+        ref.read(charactersProvider.notifier).state = updatedCharacters;
+        _lastCharactersState = List.from(updatedCharacters);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(wasActive ? 'Деактивовано' : 'Активовано'),
+            duration: AppConstants.snackBarDuration,
+            behavior: SnackBarBehavior.floating,
+            width: 200,
+          ),
+        );
+      }
+      _isOperationInProgress = false;
     } catch (e) {
       _isOperationInProgress = false;
       if (mounted) {
@@ -385,11 +419,31 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
         if (mounted) {
           final imageProvider = FileImage(file);
           await imageProvider.evict();
+          
+          // Очищаємо весь image cache
+          imageCache.clear();
+          imageCache.clearLiveImages();
         }
 
-        await loadMods();
-
+        // Оновлюємо шлях до зображення в стані без повного перезавантаження
         if (mounted) {
+          final characters = ref.read(charactersProvider);
+          final updatedCharacters = characters.map((char) {
+            final updatedSkins = char.skins.map((skin) {
+              if (skin.id == mod.id) {
+                return skin.copyWith(imagePath: imagePath);
+              }
+              return skin;
+            }).toList();
+            return char.copyWith(skins: updatedSkins);
+          }).toList();
+
+          ref.read(charactersProvider.notifier).state = updatedCharacters;
+          _lastCharactersState = List.from(updatedCharacters);
+          
+          // Форсуємо перебудову
+          setState(() {});
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Фото оновлено'),
@@ -819,31 +873,28 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         return AnimationLimiter(
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
+                          child: GridView.builder(
                             padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              childAspectRatio: 0.7,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                            ),
                             itemCount: currentSkins.length,
                             itemBuilder: (context, index) {
-                              return AnimationConfiguration.staggeredList(
+                              final mod = currentSkins[index];
+                              return AnimationConfiguration.staggeredGrid(
+                                key: ValueKey('mod_${mod.id}_${mod.isActive}'),
                                 position: index,
+                                columnCount: 4,
                                 duration: const Duration(milliseconds: 500),
-                                delay: Duration(milliseconds: 50 * index),
-                                child: SlideAnimation(
-                                  horizontalOffset: 100.0,
-                                  curve: Curves.easeOutCubic,
+                                child: ScaleAnimation(
+                                  scale: 0.5,
+                                  curve: Curves.easeOutBack,
                                   child: FadeInAnimation(
                                     curve: Curves.easeOut,
-                                    child: ScaleAnimation(
-                                      scale: 0.5,
-                                      curve: Curves.easeOutBack,
-                                      child: Padding(
-                                        padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
-                                        child: SizedBox(
-                                          height: constraints.maxHeight,
-                                          child: _buildModCard(currentSkins[index]),
-                                        ),
-                                      ),
-                                    ),
+                                    child: _buildModCard(mod),
                                   ),
                                 ),
                               );
@@ -968,27 +1019,40 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                             : null,
                   ),
                   child: ClipOval(
-                    child: character.iconPath != null
-                        ? Image.asset(
-                            character.iconPath!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: Colors.grey.withOpacity(0.2),
-                              child: Icon(
-                                Icons.person,
-                                size: AppConstants.characterCardWidth * 0.5,
-                                color: Colors.grey[600],
+                    child: character.id == 'all'
+                        ? Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
                               ),
                             ),
-                          )
-                        : Container(
-                            color: Colors.grey.withOpacity(0.2),
                             child: Icon(
-                              Icons.person,
+                              Icons.apps,
                               size: AppConstants.characterCardWidth * 0.5,
-                              color: Colors.grey[600],
+                              color: Colors.white,
                             ),
-                          ),
+                          )
+                        : character.iconPath != null
+                            ? Image.asset(
+                                character.iconPath!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Colors.grey.withOpacity(0.2),
+                                  child: Icon(
+                                    Icons.person,
+                                    size: AppConstants.characterCardWidth * 0.5,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                color: Colors.grey.withOpacity(0.2),
+                                child: Icon(
+                                  Icons.person,
+                                  size: AppConstants.characterCardWidth * 0.5,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
                   ),
                 ),
                 AnimatedSize(
@@ -1038,8 +1102,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
         elevation: AppConstants.dragFeedbackElevation,
         borderRadius: BorderRadius.circular(AppConstants.modCardBorderRadius),
         child: Container(
-          width: AppConstants.modCardWidth * 0.5, // Slightly smaller for feedback
-          height: AppConstants.modCardImageHeight * 0.75,
+          width: 200, // Fixed width for feedback
+          height: 280, // Fixed height for feedback
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(AppConstants.modCardBorderRadius),
@@ -1519,7 +1583,6 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
-        width: AppConstants.modCardWidth,
         transform: Matrix4.identity()
           ..scale(isHovered ? 1.02 : 1.0)
           ..translate(0.0, isHovered ? -4.0 : 0.0),
@@ -1575,7 +1638,7 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
                             child: Image.file(
                               File(widget.mod.imagePath!),
                               fit: BoxFit.cover,
-                              key: ValueKey(widget.mod.imagePath! + DateTime.now().millisecondsSinceEpoch.toString()),
+                              key: ValueKey('${widget.mod.id}_${widget.mod.imagePath}'),
                               cacheWidth: null,
                               cacheHeight: null,
                             ),

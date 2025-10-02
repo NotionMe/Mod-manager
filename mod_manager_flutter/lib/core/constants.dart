@@ -89,10 +89,8 @@ class AppConstants {
   static const String configFileName = 'config.json';
 
   // Window dimensions
-  static const double minWindowWidth = 900;
-  static const double minWindowHeight = 600;
-  static const double defaultWindowWidth = 1000;
-  static const double defaultWindowHeight = 700;
-  static const double maxWindowWidth = 1200;
-  static const double maxWindowHeight = 800;
+  static const double minWindowWidth = 800;
+  static const double minWindowHeight = 500;
+  static const double defaultWindowWidth = 1400;
+  static const double defaultWindowHeight = 900;
 }
