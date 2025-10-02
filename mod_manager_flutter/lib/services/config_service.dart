@@ -112,6 +112,43 @@ class ConfigService {
     }
   }
 
+  Future<bool> removeModCharacterTag(String modId) async {
+    try {
+      final tags = modCharacterTags;
+      tags.remove(modId);
+      await _prefs.setString(_keyModCharacterTags, jsonEncode(tags));
+      await _saveToFile();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Очищає теги для модів, які більше не існують
+  Future<void> cleanupInvalidTags(List<String> validModIds) async {
+    try {
+      final tags = modCharacterTags;
+      final keysToRemove = <String>[];
+      
+      for (final modId in tags.keys) {
+        if (!validModIds.contains(modId)) {
+          keysToRemove.add(modId);
+        }
+      }
+      
+      for (final key in keysToRemove) {
+        tags.remove(key);
+      }
+      
+      if (keysToRemove.isNotEmpty) {
+        await _prefs.setString(_keyModCharacterTags, jsonEncode(tags));
+        await _saveToFile();
+      }
+    } catch (e) {
+      // Ігноруємо помилки
+    }
+  }
+
   Future<bool> setTheme(String theme) async {
     try {
       await _prefs.setString(_keyTheme, theme);

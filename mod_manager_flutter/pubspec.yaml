@@ -43,6 +43,9 @@ dependencies:
   # Window management
   window_manager: ^0.4.3
 
+  # Desktop drag and drop support
+  desktop_drop: ^0.4.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -71,6 +71,9 @@ class ModManagerService {
       final modNames = await scanMods();
       final modsInfo = <ModInfo>[];
 
+      // Очищуємо символічні посилання на неіснуючі моди
+      await _cleanupInvalidLinks();
+
       for (final modName in modNames) {
         final isActive = await isModActive(modName);
         final imagePath = await _findModImage(modName);
@@ -89,6 +92,37 @@ class ModManagerService {
       return modsInfo;
     } catch (e) {
       return [];
+    }
+  }
+
+  /// Видаляє символічні посилання на моди, які більше не існують
+  Future<void> _cleanupInvalidLinks() async {
+    try {
+      if (saveModsPath == null) return;
+
+      final saveModsDir = Directory(saveModsPath!);
+      if (!await saveModsDir.exists()) return;
+
+      final modNames = await scanMods();
+      final validModNames = Set<String>.from(modNames);
+
+      await for (final entity in saveModsDir.list()) {
+        if (entity is Link) {
+          final linkName = path.basename(entity.path);
+          
+          // Якщо мод більше не існує в папці модів - видаляємо символічне посилання
+          if (!validModNames.contains(linkName)) {
+            try {
+              await entity.delete();
+              await _configService.removeActiveMod(linkName);
+            } catch (e) {
+              // Ігноруємо помилки при видаленні
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Ігноруємо помилки
     }
   }
 
@@ -219,5 +253,94 @@ class ModManagerService {
         await File(filePath).delete();
       }
     } catch (e) {}
+  }
+
+  /// Імпортує нові моди з вказаних папок
+  /// Повертає список імпортованих модів та їх автоматично визначених тегів персонажів
+  Future<(List<String>, Map<String, String>)> importMods(List<String> folderPaths) async {
+    try {
+      final (valid, _) = await validatePaths();
+      if (!valid) return (<String>[], <String, String>{});
+
+      final importedMods = <String>[];
+      final autoTags = <String, String>{};
+      final modsDir = Directory(modsPath!);
+
+      if (!await modsDir.exists()) {
+        await modsDir.create(recursive: true);
+      }
+
+      for (final folderPath in folderPaths) {
+        final sourceDir = Directory(folderPath);
+        if (!await sourceDir.exists()) continue;
+
+        final modName = path.basename(folderPath);
+        final targetPath = path.join(modsPath!, modName);
+        final targetDir = Directory(targetPath);
+
+        // Якщо мод вже існує, пропускаємо
+        if (await targetDir.exists()) {
+          continue;
+        }
+
+        // Копіюємо папку з модом
+        await _copyDirectory(sourceDir, targetDir);
+        importedMods.add(modName);
+
+        // Автоматично визначаємо тег персонажа з назви папки
+        final detectedChar = _detectCharacterFromName(modName);
+        if (detectedChar != null) {
+          autoTags[modName] = detectedChar;
+        }
+      }
+
+      return (importedMods, autoTags);
+    } catch (e) {
+      return (<String>[], <String, String>{});
+    }
+  }
+
+  /// Визначає персонажа з назви моду
+  String? _detectCharacterFromName(String modName) {
+    final nameLower = modName.toLowerCase();
+    
+    // Список персонажів для автовизначення (з utils/zzz_characters.dart)
+    const characters = [
+      'anby', 'anton', 'astra', 'belle', 'ben', 'billy', 'burnice', 'caesar',
+      'corin', 'ellen', 'evelyn', 'grace', 'harumasa', 'hugo', 'jane', 'jufufu',
+      'koleda', 'lighter', 'lucy', 'lycaon', 'miyabi', 'nekomata', 'nicole',
+      'orphie', 'panyinhu', 'piper', 'pulchra', 'quinqiy', 'rina', 'seth',
+      'solder0anby', 'solder11', 'soukaku', 'trigger', 'vivian', 'wise',
+      'yanagi', 'yixuan', 'zhuyuan',
+    ];
+
+    for (final char in characters) {
+      if (nameLower.contains(char)) {
+        return char;
+      }
+    }
+
+    return null;
+  }
+
+  /// Рекурсивно копіює директорію
+  Future<void> _copyDirectory(Directory source, Directory destination) async {
+    await destination.create(recursive: true);
+    
+    await for (final entity in source.list(recursive: false)) {
+      if (entity is Directory) {
+        final newDirectory = Directory(path.join(
+          destination.path,
+          path.basename(entity.path),
+        ));
+        await _copyDirectory(entity, newDirectory);
+      } else if (entity is File) {
+        final newFile = File(path.join(
+          destination.path,
+          path.basename(entity.path),
+        ));
+        await entity.copy(newFile.path);
+      }
+    }
   }
 }

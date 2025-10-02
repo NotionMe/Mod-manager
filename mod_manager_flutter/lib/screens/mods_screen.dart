@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:desktop_drop/desktop_drop.dart';
+import 'package:cross_file/cross_file.dart';
 import '../core/constants.dart';
 import '../models/character_info.dart';
 import '../services/api_service.dart';
@@ -42,6 +45,12 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
   // Cache for preventing unnecessary rebuilds
   List<CharacterInfo>? _lastCharactersState;
 
+  // Drag & drop state
+  bool _isDragging = false;
+  
+  // Focus node для обробки клавіатури
+  final FocusNode _focusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -77,6 +86,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
     _modeToggleAnimationController.dispose();
     _rebuildDebounce?.cancel();
     _characterSelectionDebounce?.cancel();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -113,8 +123,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       final loadedMods = await ApiService.getMods();
       final Map<String, List<ModInfo>> characterMods = {};
       final List<ModInfo> allMods = [];
+      final List<String> validModIds = [];
 
       for (var oldMod in loadedMods) {
+        validModIds.add(oldMod.id);
+        
         // Використовуємо збережений тег або автовизначення
         String charId = modCharacterTags[oldMod.id] ?? 'unknown';
         
@@ -151,6 +164,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
         }
         characterMods[charId]!.add(mod);
       }
+
+      // Очищуємо теги для видалених модів
+      final configService = await ApiService.getConfigService();
+      await configService.cleanupInvalidTags(validModIds);
+      
+      // Перезавантажуємо теги після очищення
+      setState(() {
+        modCharacterTags = configService.modCharacterTags;
+      });
 
       // Створюємо список персонажів, додаючи "ALL" на початок
       final characters = <CharacterInfo>[];
@@ -684,10 +706,25 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       );
     }
 
-    return Column(
-      children: [
-        // Header з вибором персонажа
-        Container(
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        // Обробка Ctrl+V
+        if (event is KeyDownEvent) {
+          final isControlPressed = HardwareKeyboard.instance.isControlPressed ||
+                                   HardwareKeyboard.instance.isMetaPressed;
+          if (isControlPressed && event.logicalKey == LogicalKeyboardKey.keyV) {
+            _handlePasteFromClipboard();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Column(
+        children: [
+          // Header з вибором персонажа
+          Container(
           height: 140,
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
@@ -852,54 +889,88 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                 ),
               );
             },
-            child: currentSkins.isEmpty
-                ? Center(
-                    key: const ValueKey('empty'),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
-                        const SizedBox(height: 16),
-                        Text(
-                          characters.isEmpty ? 'Завантажте моди' : 'Виберіть персонажа',
-                          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
-                  )
-                : Padding(
+            child: Padding(
                     key: ValueKey('character_${selectedIndex}_${currentSkins.length}'),
                     padding: EdgeInsets.all(AppConstants.defaultPadding),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        return AnimationLimiter(
-                          child: GridView.builder(
-                            padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 4,
-                              childAspectRatio: 0.7,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                            ),
-                            itemCount: currentSkins.length,
-                            itemBuilder: (context, index) {
-                              final mod = currentSkins[index];
-                              return AnimationConfiguration.staggeredGrid(
-                                key: ValueKey('mod_${mod.id}_${mod.isActive}'),
-                                position: index,
-                                columnCount: 4,
-                                duration: const Duration(milliseconds: 500),
-                                child: ScaleAnimation(
-                                  scale: 0.5,
-                                  curve: Curves.easeOutBack,
-                                  child: FadeInAnimation(
-                                    curve: Curves.easeOut,
-                                    child: _buildModCard(mod),
+                        return DropTarget(
+                          onDragEntered: (details) {
+                            setState(() => _isDragging = true);
+                          },
+                          onDragExited: (details) {
+                            setState(() => _isDragging = false);
+                          },
+                          onDragDone: (details) {
+                            _importModsFromFolders(details.files);
+                          },
+                          child: currentSkins.isEmpty && characters.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Завантажте моди',
+                                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                                      ),
+                                      const SizedBox(height: 24),
+                                      SizedBox(
+                                        width: 250,
+                                        height: 350,
+                                        child: _buildAddModCard(),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : AnimationLimiter(
+                                  child: GridView.builder(
+                                    padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
+                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 4,
+                                      childAspectRatio: 0.7,
+                                      crossAxisSpacing: 16,
+                                      mainAxisSpacing: 16,
+                                    ),
+                                    itemCount: currentSkins.length + 1, // +1 для кнопки "Додати"
+                                    itemBuilder: (context, index) {
+                                      // Кнопка "Додати" в кінці
+                                      if (index == currentSkins.length) {
+                                        return AnimationConfiguration.staggeredGrid(
+                                          key: const ValueKey('add_mod_card'),
+                                          position: index,
+                                          columnCount: 4,
+                                          duration: const Duration(milliseconds: 500),
+                                          child: ScaleAnimation(
+                                            scale: 0.5,
+                                            curve: Curves.easeOutBack,
+                                            child: FadeInAnimation(
+                                              curve: Curves.easeOut,
+                                              child: _buildAddModCard(),
+                                            ),
+                                          ),
+                                        );
+                                      }
+
+                                      final mod = currentSkins[index];
+                                      return AnimationConfiguration.staggeredGrid(
+                                        key: ValueKey('mod_${mod.id}_${mod.isActive}'),
+                                        position: index,
+                                        columnCount: 4,
+                                        duration: const Duration(milliseconds: 500),
+                                        child: ScaleAnimation(
+                                          scale: 0.5,
+                                          curve: Curves.easeOutBack,
+                                          child: FadeInAnimation(
+                                            curve: Curves.easeOut,
+                                            child: _buildModCard(mod),
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
-                              );
-                            },
-                          ),
                         );
                       },
                     ),
@@ -907,6 +978,128 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
           ),
         ),
       ],
+    ),
+    );
+  }
+
+  Widget _buildAddModCard() {
+    final isDarkMode = ref.watch(isDarkModeProvider);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: _showImportDialog,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: _isDragging
+                  ? [
+                      const Color(0xFF0EA5E9).withOpacity(0.3),
+                      const Color(0xFF06B6D4).withOpacity(0.3),
+                    ]
+                  : [
+                      isDarkMode
+                          ? const Color(0xFF1F2937).withOpacity(0.5)
+                          : const Color(0xFFF9FAFB),
+                      isDarkMode
+                          ? const Color(0xFF111827).withOpacity(0.5)
+                          : const Color(0xFFF3F4F6),
+                    ],
+            ),
+            border: Border.all(
+              color: _isDragging
+                  ? const Color(0xFF0EA5E9)
+                  : isDarkMode
+                      ? Colors.white.withOpacity(0.1)
+                      : Colors.black.withOpacity(0.08),
+              width: _isDragging ? 2.5 : 2,
+              strokeAlign: BorderSide.strokeAlignInside,
+            ),
+            boxShadow: _isDragging
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF0EA5E9).withOpacity(0.3),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: isDarkMode
+                          ? Colors.black.withOpacity(0.2)
+                          : Colors.grey.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(19),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: _isDragging
+                        ? const Color(0xFF0EA5E9).withOpacity(0.2)
+                        : (isDarkMode
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.black.withOpacity(0.03)),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _isDragging ? Icons.file_download : Icons.add,
+                    size: 48,
+                    color: _isDragging
+                        ? const Color(0xFF0EA5E9)
+                        : (isDarkMode
+                            ? Colors.white.withOpacity(0.6)
+                            : Colors.black.withOpacity(0.4)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _isDragging ? 'Відпустіть сюди' : 'Додати моди',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _isDragging
+                        ? const Color(0xFF0EA5E9)
+                        : (isDarkMode
+                            ? Colors.white.withOpacity(0.7)
+                            : Colors.black.withOpacity(0.6)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    _isDragging
+                        ? 'Додати папки'
+                        : 'Перетягніть папки сюди\nабо натисніть',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDarkMode
+                          ? Colors.white.withOpacity(0.5)
+                          : Colors.black.withOpacity(0.4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1544,6 +1737,380 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       }
     } catch (e) {
       // Handle error silently
+    }
+  }
+
+  /// Імпортує моди з перетягнутих папок
+  Future<void> _importModsFromFolders(List<XFile> files) async {
+    if (_isOperationInProgress) return;
+    
+    setState(() {
+      _isOperationInProgress = true;
+      _isDragging = false;
+    });
+
+    // Показуємо діалог з прогресом
+    bool dialogShown = false;
+    
+    try {
+      // Фільтруємо тільки папки
+      final folderPaths = <String>[];
+      for (final file in files) {
+        final dir = Directory(file.path);
+        if (await dir.exists()) {
+          folderPaths.add(file.path);
+        }
+      }
+
+      if (folderPaths.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Будь ласка, перетягніть папки з модами'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Показуємо діалог з прогресом
+      if (mounted) {
+        dialogShown = true;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => PopScope(
+            canPop: false,
+            child: AlertDialog(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 4,
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0EA5E9)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Імпортування ${folderPaths.length} ${folderPaths.length == 1 ? "моду" : "модів"}...',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Це може зайняти деякий час',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      // Імпортуємо моди
+      final modManagerService = await ref.read(modManagerServiceProvider.future);
+      final (importedMods, autoTags) = await modManagerService.importMods(folderPaths);
+
+      // Закриваємо діалог прогресу
+      if (mounted && dialogShown) {
+        Navigator.of(context).pop();
+        dialogShown = false;
+      }
+
+      if (importedMods.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Моди вже існують або сталася помилка'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Зберігаємо автоматично визначені теги
+      final configService = await ApiService.getConfigService();
+      for (final entry in autoTags.entries) {
+        await configService.setModCharacterTag(entry.key, entry.value);
+      }
+
+      // Оновлюємо теги в поточному стані
+      setState(() {
+        modCharacterTags.addAll(autoTags);
+      });
+
+      // Перезавантажуємо список модів
+      await loadMods();
+
+      if (mounted) {
+        // Показуємо детальне повідомлення про успіх
+        final hasAutoTags = autoTags.isNotEmpty;
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
+                SizedBox(width: 8),
+                Text('Успішно імпортовано!'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Додано ${importedMods.length} ${importedMods.length == 1 ? "мод" : "модів"}',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                if (hasAutoTags) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0EA5E9).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF0EA5E9).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.auto_awesome, color: Color(0xFF0EA5E9), size: 18),
+                            SizedBox(width: 6),
+                            Text(
+                              'Автоматично визначено теги:',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0EA5E9),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ...autoTags.entries.take(5).map((entry) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(
+                            '• ${entry.key} → ${getCharacterDisplayName(entry.value)}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        )),
+                        if (autoTags.length > 5)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'та ще ${autoTags.length - 5}...',
+                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Text(
+                  'Моди готові до використання!',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Чудово!'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      // Закриваємо діалог прогресу якщо він відкритий
+      if (mounted && dialogShown) {
+        Navigator.of(context).pop();
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Помилка імпорту: $e'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOperationInProgress = false;
+        });
+      }
+    }
+  }
+
+  /// Показує діалог вибору папок для імпорту
+  Future<void> _showImportDialog() async {
+    if (_isOperationInProgress) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.add_circle_outline, color: Color(0xFF0EA5E9)),
+            SizedBox(width: 8),
+            Text('Додати моди'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Перетягніть папки з модами у вікно додатку, натисніть Ctrl+V для вставки з буфера обміну, або скопіюйте їх безпосередньо в папку з модами.',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0EA5E9).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFF0EA5E9).withOpacity(0.3),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: Color(0xFF0EA5E9), size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Якщо в назві папки є ім\'я персонажа, тег буде встановлено автоматично!',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF0EA5E9)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Зрозуміло'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Обробка Ctrl+V для вставки шляхів з буфера обміну
+  Future<void> _handlePasteFromClipboard() async {
+    if (_isOperationInProgress) return;
+
+    try {
+      final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+      if (clipboardData == null || clipboardData.text == null || clipboardData.text!.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Буфер обміну порожній'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Розбиваємо текст на рядки та фільтруємо шляхи
+      final paths = clipboardData.text!
+          .split('\n')
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList();
+
+      if (paths.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Не знайдено шляхів до папок'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Перевіряємо що це дійсно папки та створюємо XFile об'єкти
+      final validFolders = <XFile>[];
+      for (final filePath in paths) {
+        // Видаляємо file:// префікс якщо є
+        String cleanPath = filePath;
+        if (cleanPath.startsWith('file://')) {
+          cleanPath = Uri.parse(cleanPath).toFilePath();
+        }
+        
+        final dir = Directory(cleanPath);
+        if (await dir.exists()) {
+          validFolders.add(XFile(cleanPath));
+        }
+      }
+
+      if (validFolders.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Не знайдено валідних папок з модами'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Імпортуємо папки
+      await _importModsFromFolders(validFolders);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Помилка вставки: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
