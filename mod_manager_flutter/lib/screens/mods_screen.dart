@@ -15,6 +15,9 @@ import '../services/api_service.dart';
 import '../utils/state_providers.dart';
 import '../utils/zzz_characters.dart';
 import '../utils/path_helper.dart';
+import 'components/mode_toggle_widget.dart';
+import 'components/character_cards_list_widget.dart';
+import 'components/mod_card_widget.dart';
 
 class ModsScreen extends ConsumerStatefulWidget {
   const ModsScreen({super.key});
@@ -23,13 +26,14 @@ class ModsScreen extends ConsumerStatefulWidget {
   ConsumerState<ModsScreen> createState() => _ModsScreenState();
 }
 
-class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStateMixin {
+class _ModsScreenState extends ConsumerState<ModsScreen>
+    with TickerProviderStateMixin {
   bool isLoading = false;
   String? errorMessage;
   Map<String, String> modCharacterTags = {}; // modId -> characterId
   late AnimationController _loadingAnimationController;
   late Animation<double> _loadingAnimation;
-  
+
   // Animation controller for mode toggle liquid effect
   late AnimationController _modeToggleAnimationController;
   late Animation<double> _modeToggleAnimation;
@@ -47,7 +51,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
   // Drag & drop state
   bool _isDragging = false;
-  
+
   // Focus node для обробки клавіатури
   final FocusNode _focusNode = FocusNode();
 
@@ -58,14 +62,13 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    _loadingAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _loadingAnimationController,
-      curve: Curves.easeInOut,
-    ));
-    
+    _loadingAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _loadingAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
     // Initialize liquid animation controller
     _modeToggleAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -75,7 +78,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       parent: _modeToggleAnimationController,
       curve: Curves.easeInOutCubic,
     );
-    
+
     _loadTags();
     loadMods();
   }
@@ -103,7 +106,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
     setState(() {
       modCharacterTags[modId] = characterId;
     });
-    
+
     // Перезавантажуємо моди, щоб оновити UI з новими тегами
     // Це необхідно, бо мод може переміститись в іншу категорію персонажа
     await loadMods();
@@ -127,10 +130,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
       for (var oldMod in loadedMods) {
         validModIds.add(oldMod.id);
-        
+
         // Використовуємо збережений тег або автовизначення
         String charId = modCharacterTags[oldMod.id] ?? 'unknown';
-        
+
         // Якщо тегу немає, пробуємо автовизначити
         if (charId == 'unknown') {
           for (var char in zzzCharacters) {
@@ -142,7 +145,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
           }
         }
 
-        final localImagePath = path.join(PathHelper.getModImagesPath(), '${oldMod.id}.png');
+        final localImagePath = path.join(
+          PathHelper.getModImagesPath(),
+          '${oldMod.id}.png',
+        );
         final localImageFile = File(localImagePath);
         final imagePath = await localImageFile.exists()
             ? localImagePath
@@ -168,7 +174,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       // Очищуємо теги для видалених модів
       final configService = await ApiService.getConfigService();
       await configService.cleanupInvalidTags(validModIds);
-      
+
       // Перезавантажуємо теги після очищення
       setState(() {
         modCharacterTags = configService.modCharacterTags;
@@ -176,17 +182,19 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
       // Створюємо список персонажів, додаючи "ALL" на початок
       final characters = <CharacterInfo>[];
-      
+
       // Додаємо "ALL" персонаж якщо є моди
       if (allMods.isNotEmpty) {
-        characters.add(CharacterInfo(
-          id: 'all',
-          name: 'ALL',
-          iconPath: null, // Використаємо іконку по замовчуванню
-          skins: allMods,
-        ));
+        characters.add(
+          CharacterInfo(
+            id: 'all',
+            name: 'ALL',
+            iconPath: null, // Використаємо іконку по замовчуванню
+            skins: allMods,
+          ),
+        );
       }
-      
+
       // Додаємо інших персонажів
       characters.addAll(
         zzzCharacters
@@ -199,7 +207,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
               );
             })
             .where((char) => char.skins.isNotEmpty)
-            .toList()
+            .toList(),
       );
 
       // Only update state if it actually changed to prevent unnecessary rebuilds
@@ -232,7 +240,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
       // If activating a mod in single mode, deactivate other active mods for this character
       if (!wasActive && activationMode == ActivationMode.single) {
-        await _deactivateOtherModsForCharacter(mod.characterId, excludeModId: mod.id);
+        await _deactivateOtherModsForCharacter(
+          mod.characterId,
+          excludeModId: mod.id,
+        );
       }
 
       await ApiService.toggleMod(mod.id);
@@ -246,8 +257,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
               return skin.copyWith(isActive: !wasActive);
             }
             // Якщо single mode, деактивуємо інші моди того ж персонажа
-            if (!wasActive && activationMode == ActivationMode.single && 
-                skin.characterId == mod.characterId && skin.id != mod.id && skin.isActive) {
+            if (!wasActive &&
+                activationMode == ActivationMode.single &&
+                skin.characterId == mod.characterId &&
+                skin.id != mod.id &&
+                skin.isActive) {
               return skin.copyWith(isActive: false);
             }
             return skin;
@@ -280,15 +294,17 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
   Future<void> _reloadMods() async {
     if (_isOperationInProgress) return;
-    
+
     setState(() {
       _isOperationInProgress = true;
     });
 
     try {
-      final modManagerService = await ref.read(modManagerServiceProvider.future);
+      final modManagerService = await ref.read(
+        modManagerServiceProvider.future,
+      );
       final success = await modManagerService.reloadMods();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -300,7 +316,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                Text(success ? 'Моди перезавантажені (F10)' : 'Помилка перезавантаження'),
+                Text(
+                  success
+                      ? 'Моди перезавантажені (F10)'
+                      : 'Помилка перезавантаження',
+                ),
               ],
             ),
             backgroundColor: success ? Colors.green : Colors.red,
@@ -313,10 +333,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Помилка: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Помилка: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -330,7 +347,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
     final autoF10Enabled = ref.watch(autoF10ReloadProvider);
 
     return Tooltip(
-      message: autoF10Enabled ? 'Автоматичне F10 увімкнено' : 'Автоматичне F10 вимкнено',
+      message: autoF10Enabled
+          ? 'Автоматичне F10 увімкнено'
+          : 'Автоматичне F10 вимкнено',
       child: GestureDetector(
         onTap: () {
           ref.read(autoF10ReloadProvider.notifier).state = !autoF10Enabled;
@@ -341,13 +360,17 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: autoF10Enabled 
+            color: autoF10Enabled
                 ? const Color(0xFF10B981) // Зелений коли увімкнено
                 : const Color(0xFFEF4444), // Червоний коли вимкнено
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: (autoF10Enabled ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withOpacity(0.4),
+                color:
+                    (autoF10Enabled
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444))
+                        .withOpacity(0.4),
                 blurRadius: 12,
                 spreadRadius: 1,
                 offset: const Offset(0, 4),
@@ -394,11 +417,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                   AnimatedRotation(
                     turns: _isOperationInProgress ? 1 : 0,
                     duration: const Duration(milliseconds: 1000),
-                    child: Icon(
-                      Icons.refresh,
-                      color: Colors.white,
-                      size: 18,
-                    ),
+                    child: Icon(Icons.refresh, color: Colors.white, size: 18),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -428,20 +447,20 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
         final imagePath = path.join(appDir.path, '${mod.id}.png');
         final file = File(imagePath);
-        
+
         // Видаляємо старе фото якщо існує
         if (await file.exists()) {
           await file.delete();
         }
-        
+
         // Записуємо нове фото
         await file.writeAsBytes(imageBytes);
-        
+
         // Очищаємо кеш зображення
         if (mounted) {
           final imageProvider = FileImage(file);
           await imageProvider.evict();
-          
+
           // Очищаємо весь image cache
           imageCache.clear();
           imageCache.clearLiveImages();
@@ -462,7 +481,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
           ref.read(charactersProvider.notifier).state = updatedCharacters;
           _lastCharactersState = List.from(updatedCharacters);
-          
+
           // Форсуємо перебудову
           setState(() {});
 
@@ -515,10 +534,17 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
               valueListenable: selectedChar,
               builder: (context, value, _) {
                 return DropdownButtonFormField<String>(
-                  value: zzzCharacters.contains(value) ? value : zzzCharacters.first,
+                  value: zzzCharacters.contains(value)
+                      ? value
+                      : zzzCharacters.first,
                   decoration: InputDecoration(
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     isDense: true,
                   ),
                   items: zzzCharacters.map((charId) {
@@ -533,7 +559,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                               width: 24,
                               height: 24,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(Icons.person, size: 24, color: Colors.grey[600]),
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.person,
+                                size: 24,
+                                color: Colors.grey[600],
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -581,7 +611,12 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
   void _showContextMenu(BuildContext context, ModInfo mod, Offset position) {
     showMenu(
       context: context,
-      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
       items: [
         PopupMenuItem(
           child: const Row(
@@ -692,9 +727,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            Text('Помилка завантаження', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+            Text(
+              'Помилка завантаження',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            ),
             const SizedBox(height: 8),
-            Text(errorMessage!, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+            Text(
+              errorMessage!,
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
             const SizedBox(height: 24),
             TextButton.icon(
               onPressed: loadMods,
@@ -712,8 +753,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       onKeyEvent: (node, event) {
         // Обробка Ctrl+V
         if (event is KeyDownEvent) {
-          final isControlPressed = HardwareKeyboard.instance.isControlPressed ||
-                                   HardwareKeyboard.instance.isMetaPressed;
+          final isControlPressed =
+              HardwareKeyboard.instance.isControlPressed ||
+              HardwareKeyboard.instance.isMetaPressed;
           if (isControlPressed && event.logicalKey == LogicalKeyboardKey.keyV) {
             _handlePasteFromClipboard();
             return KeyEventResult.handled;
@@ -725,260 +767,304 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
         children: [
           // Header з вибором персонажа
           Container(
-          height: 140,
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            border: Border(
-              bottom: BorderSide(
-                color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+            height: 140,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              border: Border(
+                bottom: BorderSide(
+                  color: isDarkMode
+                      ? Colors.white.withOpacity(0.1)
+                      : Colors.black.withOpacity(0.05),
+                ),
               ),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: EdgeInsets.all(AppConstants.defaultPadding),
-                child: Row(
-                  children: [
-                    Text('Персонажі', style: TextStyle(fontSize: AppConstants.headerTextSize, fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: AppConstants.smallPadding,
-                        vertical: AppConstants.tinyPadding,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(AppConstants.activeModBorderColor).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(AppConstants.smallPadding),
-                      ),
-                      child: Text(
-                        '${characters.length}',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.all(AppConstants.defaultPadding),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Персонажі',
                         style: TextStyle(
-                          fontSize: AppConstants.captionTextSize,
-                          color: const Color(AppConstants.activeModBorderColor),
+                          fontSize: AppConstants.headerTextSize,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                    const Spacer(),
-                    // Auto F10 toggle
-                    _buildAutoF10Toggle(),
-                    const SizedBox(width: 12),
-                    // F10 Reload button
-                    _buildF10ReloadButton(),
-                    const SizedBox(width: 12),
-                    // Mode toggle buttons
-                    _buildModeToggle(),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: characters.isEmpty
-                    ? Center(
-                        child: Text('Персонажів не знайдено', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-                      )
-                    : AnimationLimiter(
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: EdgeInsets.symmetric(horizontal: AppConstants.defaultPadding),
-                          itemCount: characters.length,
-                          itemBuilder: (context, index) {
-                            return AnimationConfiguration.staggeredList(
-                              position: index,
-                              duration: AppConstants.fastAnimationDuration,
-                              child: SlideAnimation(
-                                horizontalOffset: 30.0,
-                                child: FadeInAnimation(
-                                  child: _buildCharacterCard(characters[index], index, index == selectedIndex),
-                                ),
-                              ),
-                            );
-                          },
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppConstants.smallPadding,
+                          vertical: AppConstants.tinyPadding,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            AppConstants.activeModBorderColor,
+                          ).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.smallPadding,
+                          ),
+                        ),
+                        child: Text(
+                          '${characters.length}',
+                          style: TextStyle(
+                            fontSize: AppConstants.captionTextSize,
+                            color: const Color(
+                              AppConstants.activeModBorderColor,
+                            ),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-              ),
-            ],
-          ),
-        ),
-        // Counter for active mods
-        if (currentSkins.isNotEmpty)
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppConstants.defaultPadding,
-              vertical: AppConstants.smallPadding,
-            ),
-            child: Row(
-              children: [
-                Text(
-                  'Активні моди',
-                  style: TextStyle(
-                    fontSize: AppConstants.titleTextSize,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey[600],
+                      const Spacer(),
+                      // Auto F10 toggle
+                      _buildAutoF10Toggle(),
+                      const SizedBox(width: 12),
+                      // F10 Reload button
+                      _buildF10ReloadButton(),
+                      const SizedBox(width: 12),
+                      // Mode toggle buttons
+                      ModeToggleWidget(
+                        modeToggleAnimationController:
+                            _modeToggleAnimationController,
+                        modeToggleAnimation: _modeToggleAnimation,
+                        activationMode: ref.watch(activationModeProvider),
+                        onModeChanged: (ActivationMode newMode) {
+                          _rebuildDebounce?.cancel();
+                          _characterSelectionDebounce?.cancel();
+                          _isOperationInProgress = false;
+                          ref.read(activationModeProvider.notifier).state =
+                              newMode;
+                        },
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(width: AppConstants.smallMargin),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppConstants.smallPadding,
-                    vertical: AppConstants.tinyPadding,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(AppConstants.activeModCountColor).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppConstants.smallPadding),
-                  ),
-                  child: Text(
-                    '${currentSkins.where((mod) => mod.isActive).length}/${currentSkins.length}',
-                    style: TextStyle(
-                      fontSize: AppConstants.captionTextSize,
-                      color: const Color(AppConstants.activeModCountColor),
-                      fontWeight: FontWeight.w600,
-                    ),
+                Expanded(
+                  child: CharacterCardsListWidget(
+                    characters: characters,
+                    selectedIndex: selectedIndex,
+                    onCharacterSelected: (int index) {
+                      ref.read(selectedCharacterIndexProvider.notifier).state =
+                          index;
+                    },
+                    onCharacterTagSaved: _saveTag,
+                    modCharacterTags: modCharacterTags,
                   ),
                 ),
               ],
             ),
           ),
-        // Моди для вибраного персонажа
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 500),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              // Для старого контенту (що виходить)
-              final isOldWidget = child.key != ValueKey('character_${selectedIndex}_${currentSkins.length}') && 
-                                  child.key != const ValueKey('empty');
-              
-              // Старий контент йде вліво
-              final outOffset = Tween<Offset>(
-                begin: Offset.zero,
-                end: const Offset(-1.0, 0),
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeInCubic,
-              ));
-              
-              // Новий контент приходить справа
-              final inOffset = Tween<Offset>(
-                begin: const Offset(1.0, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              ));
-              
-              // Масштабування для більш плавного ефекту
-              final scaleAnimation = Tween<double>(
-                begin: 0.8,
-                end: 1.0,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              ));
-              
-              return SlideTransition(
-                position: animation.status == AnimationStatus.reverse ? outOffset : inOffset,
-                child: FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(
-                    scale: scaleAnimation,
-                    child: child,
+          // Counter for active mods
+          if (currentSkins.isNotEmpty)
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppConstants.defaultPadding,
+                vertical: AppConstants.smallPadding,
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    'Активні моди',
+                    style: TextStyle(
+                      fontSize: AppConstants.titleTextSize,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[600],
+                    ),
                   ),
+                  SizedBox(width: AppConstants.smallMargin),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppConstants.smallPadding,
+                      vertical: AppConstants.tinyPadding,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(
+                        AppConstants.activeModCountColor,
+                      ).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.smallPadding,
+                      ),
+                    ),
+                    child: Text(
+                      '${currentSkins.where((mod) => mod.isActive).length}/${currentSkins.length}',
+                      style: TextStyle(
+                        fontSize: AppConstants.captionTextSize,
+                        color: const Color(AppConstants.activeModCountColor),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Моди для вибраного персонажа
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                // Для старого контенту (що виходить)
+                final isOldWidget =
+                    child.key !=
+                        ValueKey(
+                          'character_${selectedIndex}_${currentSkins.length}',
+                        ) &&
+                    child.key != const ValueKey('empty');
+
+                // Старий контент йде вліво
+                final outOffset =
+                    Tween<Offset>(
+                      begin: Offset.zero,
+                      end: const Offset(-1.0, 0),
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeInCubic,
+                      ),
+                    );
+
+                // Новий контент приходить справа
+                final inOffset =
+                    Tween<Offset>(
+                      begin: const Offset(1.0, 0),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    );
+
+                // Масштабування для більш плавного ефекту
+                final scaleAnimation = Tween<double>(begin: 0.8, end: 1.0)
+                    .animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    );
+
+                return SlideTransition(
+                  position: animation.status == AnimationStatus.reverse
+                      ? outOffset
+                      : inOffset,
+                  child: FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(scale: scaleAnimation, child: child),
+                  ),
+                );
+              },
+              child: Padding(
+                key: ValueKey(
+                  'character_${selectedIndex}_${currentSkins.length}',
                 ),
-              );
-            },
-            child: Padding(
-                    key: ValueKey('character_${selectedIndex}_${currentSkins.length}'),
-                    padding: EdgeInsets.all(AppConstants.defaultPadding),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return DropTarget(
-                          onDragEntered: (details) {
-                            setState(() => _isDragging = true);
-                          },
-                          onDragExited: (details) {
-                            setState(() => _isDragging = false);
-                          },
-                          onDragDone: (details) {
-                            _importModsFromFolders(details.files);
-                          },
-                          child: currentSkins.isEmpty && characters.isEmpty
-                              ? Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Завантажте моди',
-                                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                                      ),
-                                      const SizedBox(height: 24),
-                                      SizedBox(
-                                        width: 250,
-                                        height: 350,
-                                        child: _buildAddModCard(),
-                                      ),
-                                    ],
+                padding: EdgeInsets.all(AppConstants.defaultPadding),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return DropTarget(
+                      onDragEntered: (details) {
+                        setState(() => _isDragging = true);
+                      },
+                      onDragExited: (details) {
+                        setState(() => _isDragging = false);
+                      },
+                      onDragDone: (details) {
+                        _importModsFromFolders(details.files);
+                      },
+                      child: currentSkins.isEmpty && characters.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.inbox_outlined,
+                                    size: 64,
+                                    color: Colors.grey[400],
                                   ),
-                                )
-                              : AnimationLimiter(
-                                  child: GridView.builder(
-                                    padding: EdgeInsets.symmetric(horizontal: AppConstants.smallPadding),
-                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 4,
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Завантажте моди',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  SizedBox(
+                                    width: 250,
+                                    height: 350,
+                                    child: _buildAddModCard(),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : AnimationLimiter(
+                              child: GridView.builder(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: AppConstants.smallPadding,
+                                ),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 6,
                                       childAspectRatio: 0.7,
                                       crossAxisSpacing: 16,
                                       mainAxisSpacing: 16,
                                     ),
-                                    itemCount: currentSkins.length + 1, // +1 для кнопки "Додати"
-                                    itemBuilder: (context, index) {
-                                      // Кнопка "Додати" в кінці
-                                      if (index == currentSkins.length) {
-                                        return AnimationConfiguration.staggeredGrid(
-                                          key: const ValueKey('add_mod_card'),
-                                          position: index,
-                                          columnCount: 4,
-                                          duration: const Duration(milliseconds: 500),
-                                          child: ScaleAnimation(
-                                            scale: 0.5,
-                                            curve: Curves.easeOutBack,
-                                            child: FadeInAnimation(
-                                              curve: Curves.easeOut,
-                                              child: _buildAddModCard(),
-                                            ),
-                                          ),
-                                        );
-                                      }
-
-                                      final mod = currentSkins[index];
-                                      return AnimationConfiguration.staggeredGrid(
-                                        key: ValueKey('mod_${mod.id}_${mod.isActive}'),
-                                        position: index,
-                                        columnCount: 4,
-                                        duration: const Duration(milliseconds: 500),
-                                        child: ScaleAnimation(
-                                          scale: 0.5,
-                                          curve: Curves.easeOutBack,
-                                          child: FadeInAnimation(
-                                            curve: Curves.easeOut,
-                                            child: _buildModCard(mod),
-                                          ),
+                                itemCount:
+                                    currentSkins.length +
+                                    1, // +1 для кнопки "Додати"
+                                itemBuilder: (context, index) {
+                                  // Кнопка "Додати" в кінці
+                                  if (index == currentSkins.length) {
+                                    return AnimationConfiguration.staggeredGrid(
+                                      key: const ValueKey('add_mod_card'),
+                                      position: index,
+                                      columnCount: 4,
+                                      duration: const Duration(
+                                        milliseconds: 500,
+                                      ),
+                                      child: ScaleAnimation(
+                                        scale: 0.5,
+                                        curve: Curves.easeOutBack,
+                                        child: FadeInAnimation(
+                                          curve: Curves.easeOut,
+                                          child: _buildAddModCard(),
                                         ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                        );
-                      },
-                    ),
-                  ),
+                                      ),
+                                    );
+                                  }
+
+                                  final mod = currentSkins[index];
+                                  return AnimationConfiguration.staggeredGrid(
+                                    key: ValueKey(
+                                      'mod_${mod.id}_${mod.isActive}',
+                                    ),
+                                    position: index,
+                                    columnCount: 4,
+                                    duration: const Duration(milliseconds: 500),
+                                    child: ScaleAnimation(
+                                      scale: 0.5,
+                                      curve: Curves.easeOutBack,
+                                      child: FadeInAnimation(
+                                        curve: Curves.easeOut,
+                                        child: _buildModCard(mod),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                    );
+                  },
+                ),
+              ),
+            ),
           ),
-        ),
-      ],
-    ),
+        ],
+      ),
     );
   }
 
@@ -1015,8 +1101,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
               color: _isDragging
                   ? const Color(0xFF0EA5E9)
                   : isDarkMode
-                      ? Colors.white.withOpacity(0.1)
-                      : Colors.black.withOpacity(0.08),
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.08),
               width: _isDragging ? 2.5 : 2,
               strokeAlign: BorderSide.strokeAlignInside,
             ),
@@ -1039,9 +1125,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                   ],
           ),
           child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(19),
-            ),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(19)),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1052,8 +1136,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                     color: _isDragging
                         ? const Color(0xFF0EA5E9).withOpacity(0.2)
                         : (isDarkMode
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.black.withOpacity(0.03)),
+                              ? Colors.white.withOpacity(0.05)
+                              : Colors.black.withOpacity(0.03)),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -1062,8 +1146,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                     color: _isDragging
                         ? const Color(0xFF0EA5E9)
                         : (isDarkMode
-                            ? Colors.white.withOpacity(0.6)
-                            : Colors.black.withOpacity(0.4)),
+                              ? Colors.white.withOpacity(0.6)
+                              : Colors.black.withOpacity(0.4)),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1075,8 +1159,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                     color: _isDragging
                         ? const Color(0xFF0EA5E9)
                         : (isDarkMode
-                            ? Colors.white.withOpacity(0.7)
-                            : Colors.black.withOpacity(0.6)),
+                              ? Colors.white.withOpacity(0.7)
+                              : Colors.black.withOpacity(0.6)),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1103,187 +1187,6 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
     );
   }
 
-  Widget _buildCharacterCard(CharacterInfo character, int index, bool isSelected) {
-    return DragTarget<ModInfo>(
-      onAcceptWithDetails: (details) async {
-        // Показуємо повідомлення про початок обробки
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Text('Збереження тегу...'),
-                ],
-              ),
-              backgroundColor: const Color(0xFF6366F1),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-        }
-        
-        // Зберігаємо тег персонажа для моду
-        await _saveTag(details.data.id, character.id);
-        
-        // Показуємо повідомлення про успішне збереження
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white, size: 16),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Мод "${details.data.name}" прив\'язано до ${character.name}'),
-                  ),
-                ],
-              ),
-              backgroundColor: const Color(0xFF10B981),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      },
-      builder: (context, candidateData, rejectedData) {
-        final bool isHovering = candidateData.isNotEmpty;
-        
-        return GestureDetector(
-          onTap: () {
-            // Immediate response for character selection - no debounce needed
-            if (mounted) {
-              ref.read(selectedCharacterIndexProvider.notifier).state = index;
-            }
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-            margin: EdgeInsets.only(right: AppConstants.characterCardMarginRight),
-            transform: Matrix4.identity()
-              ..scale(isSelected ? 1.05 : (isHovering ? 1.03 : 1.0)),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  width: AppConstants.characterCardWidth,
-                  height: AppConstants.characterCardHeight,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isHovering
-                          ? const Color(AppConstants.activeModCountColor)
-                          : isSelected
-                              ? const Color(AppConstants.activeModBorderColor)
-                              : Colors.grey.withOpacity(0.3),
-                      width: isHovering
-                          ? AppConstants.characterCardBorderWidthHover
-                          : isSelected
-                              ? AppConstants.characterCardBorderWidthSelected
-                              : AppConstants.characterCardBorderWidth,
-                    ),
-                    boxShadow: isHovering
-                        ? [BoxShadow(
-                            color: const Color(AppConstants.activeModCountColor).withOpacity(0.4),
-                            blurRadius: AppConstants.characterCardBlurRadius,
-                            spreadRadius: AppConstants.characterCardSpreadRadiusHover,
-                          )]
-                        : isSelected
-                            ? [
-                                BoxShadow(
-                                  color: const Color(AppConstants.activeModBorderColor).withOpacity(0.4),
-                                  blurRadius: AppConstants.characterCardBlurRadius + 5,
-                                  spreadRadius: AppConstants.characterCardSpreadRadiusSelected,
-                                ),
-                                BoxShadow(
-                                  color: const Color(AppConstants.activeModBorderColor).withOpacity(0.2),
-                                  blurRadius: AppConstants.characterCardBlurRadius + 10,
-                                  spreadRadius: AppConstants.characterCardSpreadRadiusSelected + 2,
-                                ),
-                              ]
-                            : null,
-                  ),
-                  child: ClipOval(
-                    child: character.id == 'all'
-                        ? Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.apps,
-                              size: AppConstants.characterCardWidth * 0.5,
-                              color: Colors.white,
-                            ),
-                          )
-                        : character.iconPath != null
-                            ? Image.asset(
-                                character.iconPath!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: Colors.grey.withOpacity(0.2),
-                                  child: Icon(
-                                    Icons.person,
-                                    size: AppConstants.characterCardWidth * 0.5,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              )
-                            : Container(
-                                color: Colors.grey.withOpacity(0.2),
-                                child: Icon(
-                                  Icons.person,
-                                  size: AppConstants.characterCardWidth * 0.5,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                  ),
-                ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                  child: (isSelected || isHovering)
-                      ? Column(
-                          children: [
-                            SizedBox(height: AppConstants.tinyPadding),
-                            AnimatedDefaultTextStyle(
-                              duration: const Duration(milliseconds: 250),
-                              curve: Curves.easeOut,
-                              style: TextStyle(
-                                fontSize: AppConstants.smallCaptionTextSize,
-                                fontWeight: FontWeight.w600,
-                                color: isHovering 
-                                    ? const Color(AppConstants.activeModCountColor) 
-                                    : (isSelected ? const Color(AppConstants.activeModBorderColor) : Colors.grey[700]),
-                              ),
-                              child: Text(
-                                character.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildModCard(ModInfo mod) {
     final isDarkMode = ref.watch(isDarkModeProvider);
 
@@ -1299,14 +1202,18 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
           height: 280, // Fixed height for feedback
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(AppConstants.modCardBorderRadius),
+            borderRadius: BorderRadius.circular(
+              AppConstants.modCardBorderRadius,
+            ),
             border: Border.all(
               color: const Color(AppConstants.activeModBorderColor),
               width: AppConstants.modCardBorderWidthActive,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(AppConstants.activeModBorderColor).withOpacity(0.3),
+                color: const Color(
+                  AppConstants.activeModBorderColor,
+                ).withOpacity(0.3),
                 blurRadius: AppConstants.modCardBlurRadiusActive,
                 spreadRadius: AppConstants.modCardSpreadRadiusActive,
               ),
@@ -1316,8 +1223,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
             children: [
               Expanded(
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: mod.imagePath != null && File(mod.imagePath!).existsSync()
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                  child:
+                      mod.imagePath != null && File(mod.imagePath!).existsSync()
                       ? Image.file(
                           File(mod.imagePath!),
                           fit: BoxFit.cover,
@@ -1325,7 +1235,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                         )
                       : Container(
                           color: Colors.grey.withOpacity(0.1),
-                          child: Icon(Icons.image_not_supported, size: 32, color: Colors.grey[600]),
+                          child: Icon(
+                            Icons.image_not_supported,
+                            size: 32,
+                            color: Colors.grey[600],
+                          ),
                         ),
                 ),
               ),
@@ -1333,7 +1247,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                 padding: const EdgeInsets.all(8),
                 child: Text(
                   mod.name,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1344,354 +1261,40 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       ),
       childWhenDragging: Opacity(
         opacity: AppConstants.dragFeedbackOpacity,
-        child: _buildModCardContent(mod, isDarkMode),
+        child: ModCardWidget(
+          mod: mod,
+          isDarkMode: isDarkMode,
+          modCharacterTags: modCharacterTags,
+          getCharacterName: _getCharacterName,
+        ),
       ),
       child: Tooltip(
-        message: 'Натисніть та утримуйте для перетягування\nКлікніть для активації',
+        message:
+            'Натисніть та утримуйте для перетягування\nКлікніть для активації',
         child: GestureDetector(
           onTap: () => toggleMod(mod),
           onSecondaryTapDown: (details) {
             _showContextMenu(context, mod, details.globalPosition);
           },
-          child: _buildModCardContent(mod, isDarkMode),
+          child: ModCardWidget(
+            mod: mod,
+            isDarkMode: isDarkMode,
+            modCharacterTags: modCharacterTags,
+            getCharacterName: _getCharacterName,
+          ),
         ),
       ),
     );
-  }
-
-  Widget _buildModCardContent(ModInfo mod, bool isDarkMode) {
-    return _ModCardWidget(
-      mod: mod, 
-      isDarkMode: isDarkMode,
-      modCharacterTags: modCharacterTags,
-      getCharacterName: _getCharacterName,
-      getModCardGradient: _getModCardGradient,
-      getModCardBorderColor: _getModCardBorderColor,
-      getModCardShadows: _getModCardShadows,
-    );
-  }
-
-  // Допоміжні методи для стилізації
-  LinearGradient _getModCardGradient(ModInfo mod, bool isDarkMode, bool isHovered) {
-    if (mod.isActive) {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color.fromRGBO(14, 165, 233, isHovered ? 0.2 : 0.15),
-          Color.fromRGBO(59, 130, 246, isHovered ? 0.15 : 0.1),
-          Color.fromRGBO(139, 92, 246, isHovered ? 0.1 : 0.05),
-        ],
-      );
-    }
-    
-    return LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        isDarkMode 
-            ? Color.fromRGBO(31, 41, 55, isHovered ? 0.9 : 0.8)
-            : Color.fromRGBO(255, 255, 255, isHovered ? 0.95 : 0.9),
-        isDarkMode 
-            ? Color.fromRGBO(17, 24, 39, isHovered ? 0.95 : 0.9)
-            : Color.fromRGBO(249, 250, 251, isHovered ? 0.98 : 0.95),
-      ],
-    );
-  }
-
-  Color _getModCardBorderColor(ModInfo mod, bool isDarkMode, bool isHovered) {
-    if (mod.isActive) {
-      return Color.fromRGBO(14, 165, 233, isHovered ? 0.8 : 0.6);
-    }
-    
-    if (isHovered) {
-      return isDarkMode 
-          ? Color.fromRGBO(255, 255, 255, 0.2)
-          : Color.fromRGBO(0, 0, 0, 0.15);
-    }
-    
-    return isDarkMode 
-        ? Color.fromRGBO(255, 255, 255, 0.08)
-        : Color.fromRGBO(0, 0, 0, 0.06);
-  }
-
-  List<BoxShadow> _getModCardShadows(ModInfo mod, bool isDarkMode, bool isHovered) {
-    List<BoxShadow> shadows = [];
-    
-    if (mod.isActive) {
-      shadows.addAll([
-        BoxShadow(
-          color: Color.fromRGBO(14, 165, 233, isHovered ? 0.3 : 0.2),
-          blurRadius: isHovered ? 20 : 15,
-          offset: Offset(0, isHovered ? 8 : 6),
-          spreadRadius: isHovered ? 2 : 1,
-        ),
-        BoxShadow(
-          color: Color.fromRGBO(14, 165, 233, isHovered ? 0.15 : 0.1),
-          blurRadius: isHovered ? 30 : 25,
-          offset: Offset(0, isHovered ? 12 : 10),
-          spreadRadius: isHovered ? 3 : 2,
-        ),
-      ]);
-    } else {
-      shadows.add(
-        BoxShadow(
-          color: isDarkMode 
-              ? Color.fromRGBO(0, 0, 0, isHovered ? 0.4 : 0.2)
-              : Color.fromRGBO(156, 163, 175, isHovered ? 0.2 : 0.1),
-          blurRadius: isHovered ? 15 : 10,
-          offset: Offset(0, isHovered ? 6 : 4),
-          spreadRadius: isHovered ? 1 : 0,
-        ),
-      );
-    }
-    
-    if (isHovered && !mod.isActive) {
-      shadows.add(
-        BoxShadow(
-          color: isDarkMode 
-              ? Color.fromRGBO(255, 255, 255, 0.05)
-              : Color.fromRGBO(0, 0, 0, 0.05),
-          blurRadius: 20,
-          offset: const Offset(0, 8),
-          spreadRadius: 1,
-        ),
-      );
-    }
-    
-    return shadows;
   }
 
   String _getCharacterName(String characterId) {
     try {
       final characters = ref.read(charactersProvider);
-      final character = characters.firstWhere(
-        (char) => char.id == characterId,
-      );
+      final character = characters.firstWhere((char) => char.id == characterId);
       return character.name;
     } catch (e) {
       return 'Unknown';
     }
-  }
-
-  Widget _buildModeToggle() {
-    final activationMode = ref.watch(activationModeProvider);
-    final isDarkMode = ref.watch(isDarkModeProvider);
-
-    return Container(
-      height: 38,
-      decoration: BoxDecoration(
-        color: isDarkMode 
-            ? const Color(0xFF1F2937).withOpacity(0.6)
-            : const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(
-          color: isDarkMode 
-              ? Colors.white.withOpacity(0.08)
-              : Colors.black.withOpacity(0.06),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Animated sliding background with liquid wave effect
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeInOutCubic,
-            left: activationMode == ActivationMode.single ? 2 : 76,
-            top: 2,
-            bottom: 2,
-            width: 72,
-            child: AnimatedBuilder(
-              animation: _modeToggleAnimation,
-              builder: (context, child) {
-                final animProgress = _modeToggleAnimation.value;
-                
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(17),
-                  child: Stack(
-                    children: [
-                      // Main gradient background
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color.lerp(
-                                const Color(0xFF0EA5E9),
-                                const Color(0xFF06B6D4),
-                                animProgress * 0.3,
-                              )!,
-                              Color.lerp(
-                                const Color(0xFF06B6D4),
-                                const Color(0xFF0EA5E9),
-                                animProgress * 0.3,
-                              )!,
-                            ],
-                          ),
-                        ),
-                      ),
-                      // Liquid wave effect overlay - first layer
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _LiquidWavePainter(
-                            animationValue: animProgress,
-                            waveAmplitude: 3.0,
-                            waveFrequency: 1.5,
-                            color: Colors.white.withOpacity(0.3),
-                          ),
-                        ),
-                      ),
-                      // Additional wave layer for depth - second layer
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _LiquidWavePainter(
-                            animationValue: animProgress,
-                            waveAmplitude: 2.2,
-                            waveFrequency: 2.0,
-                            color: Colors.white.withOpacity(0.2),
-                            phaseShift: pi / 2,
-                          ),
-                        ),
-                      ),
-                      // Third wave layer for even more depth
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _LiquidWavePainter(
-                            animationValue: animProgress,
-                            waveAmplitude: 1.5,
-                            waveFrequency: 2.5,
-                            color: Colors.white.withOpacity(0.15),
-                            phaseShift: pi,
-                          ),
-                        ),
-                      ),
-                      // Shimmer effect that flows with the animation
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment(-1.5 + (animProgress * 3.0), -0.5),
-                              end: Alignment(0.5 + (animProgress * 3.0), 0.5),
-                              colors: [
-                                Colors.transparent,
-                                Colors.white.withOpacity(0.25),
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.5, 1.0],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-          // Shadow overlay for the background indicator
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeInOutCubic,
-            left: activationMode == ActivationMode.single ? 2 : 76,
-            top: 2,
-            bottom: 2,
-            width: 72,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(17),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF0EA5E9).withOpacity(0.5),
-                    blurRadius: 16,
-                    offset: const Offset(0, 2),
-                    spreadRadius: 1,
-                  ),
-                  BoxShadow(
-                    color: const Color(0xFF0EA5E9).withOpacity(0.3),
-                    blurRadius: 24,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Buttons
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildModeButton(
-                label: 'Single',
-                isActive: activationMode == ActivationMode.single,
-                onTap: () {
-                  if (activationMode != ActivationMode.single) {
-                    _modeToggleAnimationController.forward(from: 0.0);
-                    _rebuildDebounce?.cancel();
-                    _characterSelectionDebounce?.cancel();
-                    _isOperationInProgress = false;
-                    ref.read(activationModeProvider.notifier).state = ActivationMode.single;
-                  }
-                },
-                isDarkMode: isDarkMode,
-              ),
-              _buildModeButton(
-                label: 'Multi',
-                isActive: activationMode == ActivationMode.multi,
-                onTap: () {
-                  if (activationMode != ActivationMode.multi) {
-                    _modeToggleAnimationController.forward(from: 0.0);
-                    _rebuildDebounce?.cancel();
-                    _characterSelectionDebounce?.cancel();
-                    _isOperationInProgress = false;
-                    ref.read(activationModeProvider.notifier).state = ActivationMode.multi;
-                  }
-                },
-                isDarkMode: isDarkMode,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModeButton({
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    required bool isDarkMode,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 74,
-        height: 38,
-        alignment: Alignment.center,
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
-            color: isActive 
-                ? Colors.white
-                : isDarkMode 
-                    ? Colors.white.withOpacity(0.5)
-                    : Colors.black.withOpacity(0.5),
-            letterSpacing: 0.3,
-          ),
-          child: Text(label),
-        ),
-      ),
-    );
   }
 
   bool _charactersActuallyChanged(List<CharacterInfo> newCharacters) {
@@ -1721,16 +1324,22 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
     return false;
   }
 
-  Future<void> _deactivateOtherModsForCharacter(String characterId, {String? excludeModId}) async {
+  Future<void> _deactivateOtherModsForCharacter(
+    String characterId, {
+    String? excludeModId,
+  }) async {
     try {
       final characters = ref.read(charactersProvider);
       final character = characters.firstWhere(
         (char) => char.id == characterId,
-        orElse: () => CharacterInfo(id: '', name: '', iconPath: null, skins: []),
+        orElse: () =>
+            CharacterInfo(id: '', name: '', iconPath: null, skins: []),
       );
 
       if (character.id.isNotEmpty) {
-        final activeMods = character.skins.where((mod) => mod.isActive && mod.id != excludeModId).toList();
+        final activeMods = character.skins
+            .where((mod) => mod.isActive && mod.id != excludeModId)
+            .toList();
         for (final mod in activeMods) {
           await ApiService.toggleMod(mod.id);
         }
@@ -1743,7 +1352,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
   /// Імпортує моди з перетягнутих папок
   Future<void> _importModsFromFolders(List<XFile> files) async {
     if (_isOperationInProgress) return;
-    
+
     setState(() {
       _isOperationInProgress = true;
       _isDragging = false;
@@ -1751,7 +1360,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
     // Показуємо діалог з прогресом
     bool dialogShown = false;
-    
+
     try {
       // Фільтруємо тільки папки
       final folderPaths = <String>[];
@@ -1791,7 +1400,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                     height: 50,
                     child: CircularProgressIndicator(
                       strokeWidth: 4,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0EA5E9)),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF0EA5E9),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -1805,10 +1416,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                   const SizedBox(height: 8),
                   Text(
                     'Це може зайняти деякий час',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -1818,8 +1426,12 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       }
 
       // Імпортуємо моди
-      final modManagerService = await ref.read(modManagerServiceProvider.future);
-      final (importedMods, autoTags) = await modManagerService.importMods(folderPaths);
+      final modManagerService = await ref.read(
+        modManagerServiceProvider.future,
+      );
+      final (importedMods, autoTags) = await modManagerService.importMods(
+        folderPaths,
+      );
 
       // Закриваємо діалог прогресу
       if (mounted && dialogShown) {
@@ -1835,9 +1447,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                 children: [
                   Icon(Icons.info_outline, color: Colors.white, size: 20),
                   SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Моди вже існують або сталася помилка'),
-                  ),
+                  Expanded(child: Text('Моди вже існують або сталася помилка')),
                 ],
               ),
               backgroundColor: Colors.orange,
@@ -1881,7 +1491,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
               children: [
                 Text(
                   'Додано ${importedMods.length} ${importedMods.length == 1 ? "мод" : "модів"}',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 if (hasAutoTags) ...[
                   const SizedBox(height: 12),
@@ -1899,7 +1512,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.auto_awesome, color: Color(0xFF0EA5E9), size: 18),
+                            Icon(
+                              Icons.auto_awesome,
+                              color: Color(0xFF0EA5E9),
+                              size: 18,
+                            ),
                             SizedBox(width: 6),
                             Text(
                               'Автоматично визначено теги:',
@@ -1912,19 +1529,28 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
                           ],
                         ),
                         const SizedBox(height: 8),
-                        ...autoTags.entries.take(5).map((entry) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Text(
-                            '• ${entry.key} → ${getCharacterDisplayName(entry.value)}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        )),
+                        ...autoTags.entries
+                            .take(5)
+                            .map(
+                              (entry) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
+                                child: Text(
+                                  '• ${entry.key} → ${getCharacterDisplayName(entry.value)}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ),
                         if (autoTags.length > 5)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
                               'та ще ${autoTags.length - 5}...',
-                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
                             ),
                           ),
                       ],
@@ -1952,7 +1578,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       if (mounted && dialogShown) {
         Navigator.of(context).pop();
       }
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1960,9 +1586,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
               children: [
                 const Icon(Icons.error_outline, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text('Помилка імпорту: $e'),
-                ),
+                Expanded(child: Text('Помилка імпорту: $e')),
               ],
             ),
             backgroundColor: Colors.red,
@@ -2013,7 +1637,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.lightbulb_outline, color: Color(0xFF0EA5E9), size: 20),
+                  Icon(
+                    Icons.lightbulb_outline,
+                    color: Color(0xFF0EA5E9),
+                    size: 20,
+                  ),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -2042,7 +1670,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
 
     try {
       final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
-      if (clipboardData == null || clipboardData.text == null || clipboardData.text!.isEmpty) {
+      if (clipboardData == null ||
+          clipboardData.text == null ||
+          clipboardData.text!.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -2081,7 +1711,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
         if (cleanPath.startsWith('file://')) {
           cleanPath = Uri.parse(cleanPath).toFilePath();
         }
-        
+
         final dir = Directory(cleanPath);
         if (await dir.exists()) {
           validFolders.add(XFile(cleanPath));
@@ -2113,7 +1743,6 @@ class _ModsScreenState extends ConsumerState<ModsScreen> with TickerProviderStat
       }
     }
   }
-
 }
 
 class _ModCardWidget extends StatefulWidget {
@@ -2155,17 +1784,29 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
           ..translate(0.0, isHovered ? -4.0 : 0.0),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          gradient: widget.getModCardGradient(widget.mod, widget.isDarkMode, isHovered),
+          gradient: widget.getModCardGradient(
+            widget.mod,
+            widget.isDarkMode,
+            isHovered,
+          ),
           border: Border.all(
-            color: widget.getModCardBorderColor(widget.mod, widget.isDarkMode, isHovered),
+            color: widget.getModCardBorderColor(
+              widget.mod,
+              widget.isDarkMode,
+              isHovered,
+            ),
             width: widget.mod.isActive ? 2.5 : (isHovered ? 2.0 : 1.2),
           ),
-          boxShadow: widget.getModCardShadows(widget.mod, widget.isDarkMode, isHovered),
+          boxShadow: widget.getModCardShadows(
+            widget.mod,
+            widget.isDarkMode,
+            isHovered,
+          ),
         ),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(19),
-            gradient: isHovered 
+            gradient: isHovered
                 ? LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -2182,30 +1823,41 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
               // Зображення моду з новим стилем
               Expanded(
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(18),
+                  ),
                   child: Container(
                     decoration: BoxDecoration(
-                      gradient: widget.mod.imagePath != null && File(widget.mod.imagePath!).existsSync()
+                      gradient:
+                          widget.mod.imagePath != null &&
+                              File(widget.mod.imagePath!).existsSync()
                           ? null
                           : LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                widget.isDarkMode ? const Color(0xFF374151) : const Color(0xFFF3F4F6),
-                                widget.isDarkMode ? const Color(0xFF1F2937) : const Color(0xFFE5E7EB),
+                                widget.isDarkMode
+                                    ? const Color(0xFF374151)
+                                    : const Color(0xFFF3F4F6),
+                                widget.isDarkMode
+                                    ? const Color(0xFF1F2937)
+                                    : const Color(0xFFE5E7EB),
                               ],
                             ),
                     ),
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (widget.mod.imagePath != null && File(widget.mod.imagePath!).existsSync())
+                        if (widget.mod.imagePath != null &&
+                            File(widget.mod.imagePath!).existsSync())
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
                             child: Image.file(
                               File(widget.mod.imagePath!),
                               fit: BoxFit.cover,
-                              key: ValueKey('${widget.mod.id}_${widget.mod.imagePath}'),
+                              key: ValueKey(
+                                '${widget.mod.id}_${widget.mod.imagePath}',
+                              ),
                               cacheWidth: null,
                               cacheHeight: null,
                             ),
@@ -2215,7 +1867,7 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
                             child: Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: widget.isDarkMode 
+                                color: widget.isDarkMode
                                     ? Color.fromRGBO(255, 255, 255, 0.05)
                                     : Color.fromRGBO(0, 0, 0, 0.03),
                                 borderRadius: BorderRadius.circular(12),
@@ -2223,15 +1875,16 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
                               child: Icon(
                                 Icons.image_outlined,
                                 size: 40,
-                                color: widget.isDarkMode 
+                                color: widget.isDarkMode
                                     ? Color.fromRGBO(255, 255, 255, 0.4)
                                     : Color.fromRGBO(0, 0, 0, 0.4),
                               ),
                             ),
                           ),
-                        
+
                         // Градієнт оверлей для кращої читабельності
-                        if (widget.mod.imagePath != null && File(widget.mod.imagePath!).existsSync())
+                        if (widget.mod.imagePath != null &&
+                            File(widget.mod.imagePath!).existsSync())
                           Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -2244,7 +1897,7 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
                               ),
                             ),
                           ),
-                        
+
                         // Стильний статус індикатор
                         Positioned(
                           top: 12,
@@ -2255,13 +1908,13 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
                             decoration: BoxDecoration(
                               color: widget.mod.isActive
                                   ? const Color(0xFF10B981)
-                                  : widget.isDarkMode 
-                                      ? const Color(0xFF374151)
-                                      : const Color(0xFF6B7280),
+                                  : widget.isDarkMode
+                                  ? const Color(0xFF374151)
+                                  : const Color(0xFF6B7280),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: widget.mod.isActive 
+                                  color: widget.mod.isActive
                                       ? Color.fromRGBO(16, 185, 129, 0.3)
                                       : Color.fromRGBO(0, 0, 0, 0.3),
                                   blurRadius: 8,
@@ -2270,13 +1923,15 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
                               ],
                             ),
                             child: Icon(
-                              widget.mod.isActive ? Icons.check_rounded : Icons.close_rounded,
+                              widget.mod.isActive
+                                  ? Icons.check_rounded
+                                  : Icons.close_rounded,
                               size: 18,
                               color: Colors.white,
                             ),
                           ),
                         ),
-                        
+
                         // Тег персонажа з новим стилем
                         if (widget.modCharacterTags.containsKey(widget.mod.id))
                           Positioned(
@@ -2284,7 +1939,10 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
                             left: 12,
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF0EA5E9),
                                 borderRadius: BorderRadius.circular(8),
@@ -2297,7 +1955,9 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
                                 ],
                               ),
                               child: Text(
-                                widget.getCharacterName(widget.modCharacterTags[widget.mod.id]!),
+                                widget.getCharacterName(
+                                  widget.modCharacterTags[widget.mod.id]!,
+                                ),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
@@ -2312,19 +1972,21 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
                   ),
                 ),
               ),
-              
+
               // Назва моду з новим стилем
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(18),
+                  ),
                   color: widget.mod.isActive
-                      ? (widget.isDarkMode 
-                          ? Color.fromRGBO(14, 165, 233, 0.1)
-                          : Color.fromRGBO(14, 165, 233, 0.05))
-                      : (widget.isDarkMode 
-                          ? Color.fromRGBO(255, 255, 255, 0.02)
-                          : Color.fromRGBO(0, 0, 0, 0.01)),
+                      ? (widget.isDarkMode
+                            ? Color.fromRGBO(14, 165, 233, 0.1)
+                            : Color.fromRGBO(14, 165, 233, 0.05))
+                      : (widget.isDarkMode
+                            ? Color.fromRGBO(255, 255, 255, 0.02)
+                            : Color.fromRGBO(0, 0, 0, 0.01)),
                 ),
                 child: Text(
                   widget.mod.name,
@@ -2334,7 +1996,9 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
                     letterSpacing: 0.2,
                     color: widget.mod.isActive
                         ? const Color(0xFF0EA5E9)
-                        : (widget.isDarkMode ? Color.fromRGBO(255, 255, 255, 0.9) : Color.fromRGBO(0, 0, 0, 0.8)),
+                        : (widget.isDarkMode
+                              ? Color.fromRGBO(255, 255, 255, 0.9)
+                              : Color.fromRGBO(0, 0, 0, 0.8)),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -2345,66 +2009,5 @@ class _ModCardWidgetState extends State<_ModCardWidget> {
         ),
       ),
     );
-  }
-
-}
-
-// Custom painter for liquid wave effect
-class _LiquidWavePainter extends CustomPainter {
-  final double animationValue;
-  final double waveAmplitude;
-  final double waveFrequency;
-  final Color color;
-  final double phaseShift;
-
-  _LiquidWavePainter({
-    required this.animationValue,
-    required this.waveAmplitude,
-    required this.waveFrequency,
-    required this.color,
-    this.phaseShift = 0.0,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    
-    // Start from bottom left
-    path.moveTo(0, size.height);
-    
-    // Create smooth wave across the width
-    for (double x = 0; x <= size.width; x += 1) {
-      final normalizedX = x / size.width;
-      
-      // Create wave that animates smoothly
-      final wave = sin(
-        (normalizedX * waveFrequency * 2 * pi) + 
-        (animationValue * 4 * pi) + 
-        phaseShift
-      );
-      
-      // Apply wave amplitude with smooth falloff at edges
-      final edgeFactor = sin(normalizedX * pi);
-      final y = (size.height * 0.5) + (wave * waveAmplitude * edgeFactor);
-      
-      path.lineTo(x, y);
-    }
-    
-    // Complete the path
-    path.lineTo(size.width, size.height);
-    path.close();
-    
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_LiquidWavePainter oldDelegate) {
-    return oldDelegate.animationValue != animationValue ||
-           oldDelegate.waveAmplitude != waveAmplitude ||
-           oldDelegate.waveFrequency != waveFrequency;
   }
 }

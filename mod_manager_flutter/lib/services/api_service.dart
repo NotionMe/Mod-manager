@@ -140,4 +140,14 @@ class ApiService {
     await initialize();
     return _modManager!;
   }
+
+  /// Автоматично визначає та встановлює теги для всіх модів
+  static Future<Map<String, String>> autoTagAllMods() async {
+    try {
+      await initialize();
+      return await _modManager!.autoTagAllMods();
+    } catch (e) {
+      throw Exception('Помилка автотегування: $e');
+    }
+  }
 }

@@ -5,6 +5,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../core/constants.dart';
 import '../services/api_service.dart';
 import '../utils/state_providers.dart';
+import '../utils/zzz_characters.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -215,6 +216,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                             isDarkMode: isDarkMode,
                           ),
                           const SizedBox(height: 32),
+                          // Auto-Tagging Section
+                          _buildSectionTitle('Автоматичне тегування'),
+                          const SizedBox(height: 16),
+                          _buildAutoTagSection(isDarkMode),
+                          const SizedBox(height: 32),
                           // F10 Reload Section
                           _buildSectionTitle('F10 Mod Reload'),
                           const SizedBox(height: 16),
@@ -290,6 +296,318 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
         ),
       ],
     );
+  }
+
+  Widget _buildAutoTagSection(bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[850] : Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF8B5CF6), Color(0xFFA855F7)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Автоматичне визначення персонажів',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Система автоматично визначає персонажів за назвою папки моду і встановлює відповідні теги.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildRequirement('✓', 'Автоматично при імпорті нових модів', Colors.green),
+          const SizedBox(height: 8),
+          _buildRequirement('✓', 'Розпізнає ${zzzCharactersData.length} персонажів', Colors.green),
+          const SizedBox(height: 8),
+          _buildRequirement('✓', 'Назва має містити ім\'я персонажа (напр. "Ellen_Summer")', Colors.blue),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF8B5CF6).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFF8B5CF6).withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.lightbulb_outline,
+                  color: Color(0xFF8B5CF6),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Приклад: папка "Miyabi_Kimono" автоматично отримає тег Miyabi',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _autoTagAllMods,
+              icon: const Icon(Icons.auto_awesome, size: 18),
+              label: const Text('Визначити теги для всіх модів'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF8B5CF6),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Ця функція проаналізує всі моди без тегів і спробує визначити персонажів автоматично',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[500],
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _autoTagAllMods() async {
+    setState(() => isLoading = true);
+
+    try {
+      // Показуємо діалог з прогресом
+      bool dialogShown = false;
+      if (mounted) {
+        dialogShown = true;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => PopScope(
+            canPop: false,
+            child: AlertDialog(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 4,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF8B5CF6),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Визначаю теги...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Аналізую назви модів',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      final autoTags = await ApiService.autoTagAllMods();
+
+      // Закриваємо діалог прогресу
+      if (mounted && dialogShown) {
+        Navigator.of(context).pop();
+      }
+
+      if (autoTags.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Не знайдено модів для автотегування'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          // Показуємо детальне повідомлення про успіх
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6), size: 28),
+                  SizedBox(width: 8),
+                  Text('Теги визначено!'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Автоматично встановлено ${autoTags.length} ${autoTags.length == 1 ? "тег" : "тегів"}',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.label,
+                              color: Color(0xFF8B5CF6),
+                              size: 18,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'Визначені теги:',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF8B5CF6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ...autoTags.entries.take(5).map(
+                              (entry) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
+                                child: Text(
+                                  '• ${entry.key} → ${getCharacterDisplayName(entry.value)}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ),
+                        if (autoTags.length > 5)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'та ще ${autoTags.length - 5}...',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Моди згруповано за персонажами!',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                  ),
+                  child: const Text('Чудово!'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Помилка автотегування: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
   }
 
   Widget _buildF10Section(bool isDarkMode) {

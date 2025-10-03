@@ -323,6 +323,36 @@ class ModManagerService {
     return null;
   }
 
+  /// Автоматично визначає та встановлює теги для всіх модів
+  /// Повертає кількість модів з визначеними тегами
+  Future<Map<String, String>> autoTagAllMods() async {
+    try {
+      final modNames = await scanMods();
+      final autoTags = <String, String>{};
+
+      for (final modName in modNames) {
+        // Перевіряємо чи вже є тег для цього моду
+        final existingTag = _configService.modCharacterTags[modName];
+        
+        // Якщо тег вже є і він не 'unknown', пропускаємо
+        if (existingTag != null && existingTag != 'unknown') {
+          continue;
+        }
+
+        // Автоматично визначаємо тег з назви
+        final detectedChar = _detectCharacterFromName(modName);
+        if (detectedChar != null) {
+          await _configService.setModCharacterTag(modName, detectedChar);
+          autoTags[modName] = detectedChar;
+        }
+      }
+
+      return autoTags;
+    } catch (e) {
+      return {};
+    }
+  }
+
   /// Рекурсивно копіює директорію
   Future<void> _copyDirectory(Directory source, Directory destination) async {
     await destination.create(recursive: true);

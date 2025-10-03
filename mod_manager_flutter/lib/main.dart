@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'dart:io';
 import 'core/constants.dart';
 import 'screens/mods_screen.dart';
 import 'screens/settings_screen.dart';
@@ -119,7 +120,7 @@ class MainScreen extends ConsumerStatefulWidget {
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStateMixin {
+class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStateMixin, WindowListener {
   late AnimationController _logoAnimationController;
   late AnimationController _sidebarAnimationController;
   late Animation<double> _logoScaleAnimation;
@@ -129,6 +130,8 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
   @override
   void initState() {
     super.initState();
+    windowManager.addListener(this);
+    
     _logoAnimationController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
@@ -168,9 +171,24 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
 
   @override
   void dispose() {
+    windowManager.removeListener(this);
     _logoAnimationController.dispose();
     _sidebarAnimationController.dispose();
     super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    // Швидко закриваємо без очікування
+    await windowManager.destroy();
+    exit(0);
+  }
+
+  @override
+  void onWindowEvent(String eventName) {
+    if (eventName == 'close') {
+      onWindowClose();
+    }
   }
 
   @override
