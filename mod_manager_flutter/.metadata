@@ -15,7 +15,7 @@ migration:
     - platform: root
       create_revision: archlinuxaur0000000000000000000000000000
       base_revision: archlinuxaur0000000000000000000000000000
-    - platform: linux
+    - platform: windows
       create_revision: archlinuxaur0000000000000000000000000000
       base_revision: archlinuxaur0000000000000000000000000000
 

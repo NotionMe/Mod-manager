@@ -45,6 +45,10 @@ dependencies:
 
   # Desktop drag and drop support
   desktop_drop: ^0.4.4
+  
+  # Windows-specific dependencies (працюють на всіх платформах, але активні тільки на Windows)
+  win32: ^5.5.0
+  ffi: ^2.1.0
 
 dev_dependencies:
   flutter_test:
