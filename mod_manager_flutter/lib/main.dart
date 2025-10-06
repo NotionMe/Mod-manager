@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'dart:io';
 import 'core/constants.dart';
 import 'screens/mods_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/welcome_screen.dart';
 import 'utils/state_providers.dart';
 import 'services/api_service.dart';
+import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,19 +33,70 @@ void main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Ініціалізуємо ApiService з ProviderContainer
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ApiService.initialize(container: ProviderScope.containerOf(context));
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  bool _isFirstRun = true;
+  bool _isLoading = true;
+  bool _hasCheckedFirstRun = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasCheckedFirstRun) {
+      _hasCheckedFirstRun = true;
+      _checkFirstRun();
+    }
+  }
+
+  Future<void> _checkFirstRun() async {
+    await ApiService.initialize(container: ProviderScope.containerOf(context));
+    final isFirstRun = await ApiService.isFirstRun();
+    if (mounted) {
+      setState(() {
+        _isFirstRun = isFirstRun;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onWelcomeComplete() async {
+    await ApiService.completeFirstRun();
+    setState(() {
+      _isFirstRun = false;
     });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDarkMode = ref.watch(isDarkModeProvider);
+    final locale = ref.watch(localeProvider);
 
     return MaterialApp(
-      title: 'ZZZ Mod Manager',
+      locale: locale,
+      supportedLocales: const [Locale('en'), Locale('uk')],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      onGenerateTitle: (context) => context.loc.t('app.title'),
+      home: _isLoading
+          ? const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            )
+          : (_isFirstRun
+              ? WelcomeScreen(onComplete: _onWelcomeComplete)
+              : const MainScreen()),
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0EA5E9),
@@ -107,8 +161,6 @@ class MyApp extends ConsumerWidget {
           ),
         ),
       ),
-      home: const MainScreen(),
-      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -196,6 +248,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
     final currentTab = ref.watch(tabIndexProvider);
     final isDarkMode = ref.watch(isDarkModeProvider);
     final isSidebarCollapsed = ref.watch(sidebarCollapsedProvider);
+    final loc = context.loc;
 
     return Scaffold(
       body: Column(
@@ -263,7 +316,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                       onPressed: () {
                         ref.read(sidebarCollapsedProvider.notifier).state = !isSidebarCollapsed;
                       },
-                      tooltip: isSidebarCollapsed ? 'Розгорнути' : 'Згорнути',
+                      tooltip: isSidebarCollapsed ? loc.t('navigation.expand') : loc.t('navigation.collapse'),
                     ),
                   ),
                 ),
@@ -315,7 +368,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Mod Manager',
+                    loc.t('app.brand_subtitle'),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[500],
@@ -340,7 +393,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                         _buildNavItem(
                           context: context,
                           icon: Icons.dashboard_rounded,
-                          label: 'Mods',
+                          label: loc.t('navigation.mods'),
                           isActive: currentTab == 0,
                           onTap: () => ref.read(tabIndexProvider.notifier).state = 0,
                         ),
@@ -348,7 +401,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                         _buildNavItem(
                           context: context,
                           icon: Icons.settings_rounded,
-                          label: 'Settings',
+                          label: loc.t('navigation.settings'),
                           isActive: currentTab == 1,
                           onTap: () => ref.read(tabIndexProvider.notifier).state = 1,
                         ),
@@ -481,9 +534,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
               shaderCallback: (bounds) => const LinearGradient(
                 colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
               ).createShader(bounds),
-              child: const Text(
-                'ZZZ Mod Manager',
-                style: TextStyle(
+              child: Text(
+                context.loc.t('app.title'),
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,

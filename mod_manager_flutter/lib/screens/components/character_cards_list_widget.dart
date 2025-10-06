@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../../core/constants.dart';
 import '../../models/character_info.dart';
+import '../../l10n/app_localizations.dart';
 
 class CharacterCardsListWidget extends ConsumerWidget {
   final List<CharacterInfo> characters;
@@ -22,9 +23,13 @@ class CharacterCardsListWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final loc = context.loc;
     return characters.isEmpty
         ? Center(
-            child: Text('Персонажів не знайдено', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+            child: Text(
+              loc.t('mods.characters.empty'),
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
           )
         : AnimationLimiter(
             child: ListView.builder(
@@ -64,6 +69,7 @@ class CharacterCardsListWidget extends ConsumerWidget {
     Function(String, String) onCharacterTagSaved,
     Map<String, String> modCharacterTags,
   ) {
+    final loc = context.loc;
     return DragTarget<ModInfo>(
       onWillAccept: (_) => character.id != 'favorites',
       onAcceptWithDetails: (details) async {
@@ -85,7 +91,7 @@ class CharacterCardsListWidget extends ConsumerWidget {
                     ),
                   ),
                   SizedBox(width: 12),
-                  Text('Збереження тегу...'),
+                  Text(loc.t('mods.dialog.saving_tag')),
                 ],
               ),
               backgroundColor: const Color(0xFF6366F1),
@@ -106,7 +112,15 @@ class CharacterCardsListWidget extends ConsumerWidget {
                   Icon(Icons.check_circle, color: Colors.white, size: 16),
                   SizedBox(width: 8),
                   Expanded(
-                    child: Text('Мод "${details.data.name}" прив\'язано до ${character.name}'),
+                    child: Text(
+                      loc.t(
+                        'mods.dialog.mod_assigned',
+                        params: {
+                          'mod': details.data.name,
+                          'character': character.name,
+                        },
+                      ),
+                    ),
                   ),
                 ],
               ),

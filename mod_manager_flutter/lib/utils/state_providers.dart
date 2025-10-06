@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/character_info.dart';
 import '../services/api_service.dart';
@@ -61,6 +62,9 @@ final autoRefreshProvider = StateProvider<bool>((ref) => false);
 
 // View mode: grid or carousel
 final isGridViewProvider = StateProvider<bool>((ref) => true);
+
+// Locale provider for localization
+final localeProvider = StateProvider<Locale>((ref) => const Locale('en'));
 
 // Activation mode: single (один скін) або multi (кілька скінів)
 enum ActivationMode { single, multi }

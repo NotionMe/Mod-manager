@@ -1,3 +1,5 @@
+import 'dart:ui';
+import 'package:mod_manager_flutter/utils/state_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/character_info.dart';
@@ -19,6 +21,10 @@ class ApiService {
 
     if (container != null) {
       _container = container;
+      final localeCode = _configService?.language ?? 'en';
+      _container!
+          .read(localeProvider.notifier)
+          .state = Locale(localeCode);
     }
 
     if (_modManager == null) {
@@ -104,10 +110,17 @@ class ApiService {
       return {
         'mods_path': _configService!.modsPath ?? '',
         'save_mods_path': _configService!.saveModsPath ?? '',
+        'language': _configService!.language,
       };
     } catch (e) {
       throw Exception('Помилка отримання конфігурації: $e');
     }
+  }
+
+  static Future<void> setLanguage(String languageCode) async {
+    await initialize();
+    await _configService!.setLanguage(languageCode);
+    _container?.read(localeProvider.notifier).state = Locale(languageCode);
   }
 
   static Future<String> updateConfig({
@@ -149,5 +162,17 @@ class ApiService {
     } catch (e) {
       throw Exception('Помилка автотегування: $e');
     }
+  }
+
+  /// Перевіряє, чи це перший запуск додатку
+  static Future<bool> isFirstRun() async {
+    await initialize();
+    return _configService!.isFirstRun;
+  }
+
+  /// Завершує початкове налаштування
+  static Future<void> completeFirstRun() async {
+    await initialize();
+    await _configService!.setFirstRunComplete();
   }
 }

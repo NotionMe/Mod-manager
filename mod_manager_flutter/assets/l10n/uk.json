@@ -1,0 +1,243 @@
+{
+  "app": {
+    "title": "ZZZ Менеджер модів",
+    "brand_subtitle": "Менеджер модів"
+  },
+  "navigation": {
+    "mods": "Моди",
+    "settings": "Налаштування",
+    "expand": "Розгорнути",
+    "collapse": "Згорнути"
+  },
+  "mods": {
+    "favorites": "Улюблені",
+    "all": "УСІ",
+    "loading": {
+      "title": "Завантаження модів..."
+    },
+    "errors": {
+      "load_title": "Помилка",
+      "load": "Не вдалося завантажити моди",
+      "retry": "Спробувати знову",
+      "generic": "Помилка: {message}"
+    },
+    "snackbar": {
+      "activated": "Активовано",
+      "deactivated": "Деактивовано",
+      "reload_success": "Моди перезавантажені (F10)",
+      "reload_failure": "Помилка перезавантаження",
+      "favorites_added": "Додано до улюблених",
+      "favorites_removed": "Видалено з улюблених",
+      "list_refreshed": "Список модів оновлено",
+      "photo_updated": "Фото оновлено",
+      "clipboard_empty": "Буфер обміну порожній",
+      "import_no_folders": "Будь ласка, перетягніть папки з модами",
+      "import_duplicates": "Моди вже існують або сталася помилка",
+      "import_success_title": "Успішно імпортовано!",
+      "import_error": "Помилка імпорту: {message}",
+      "tag_saved": "Tag оновлено",
+      "paste_error": "Помилка вставки: {message}"
+    },
+    "tooltips": {
+      "auto_f10_on": "Автоматичне F10 увімкнено",
+      "auto_f10_off": "Автоматичне F10 вимкнено",
+      "reload": "Перезавантажити моди (F10)",
+      "refresh": "Оновити список модів",
+      "card": "Натисніть та утримуйте для перетягування\nКлікніть для активації"
+    },
+    "actions": {
+      "refresh": "Оновити"
+    },
+    "headers": {
+      "characters": "Персонажі",
+      "active_mods": "Активні моди"
+    },
+    "characters": {
+      "empty": "Персонажів не знайдено"
+    },
+    "empty": {
+      "title": "Завантажте моди",
+      "cta": "Додати моди",
+      "drag": "Перетягніть папки сюди\nабо натисніть",
+      "prompt": "Відпустіть сюди",
+      "add_folders": "Додати папки"
+    },
+    "dialog": {
+      "edit_title": "Редагувати мод",
+      "character_tag": "Тег персонажа:",
+      "cancel": "Скасувати",
+      "save": "Зберегти",
+      "add_mods_title": "Додати моди",
+      "add_mods_description": "Перетягніть папки з модами у вікно додатку, натисніть Ctrl+V для вставки з буфера обміну або вставте їх безпосередньо у папку з модами.",
+      "hint": "Якщо в назві папки є ім'я персонажа, тег буде встановлено автоматично!",
+      "got_it": "Зрозуміло",
+      "import_progress": "Імпортування {count} {plural}",
+      "import_progress_hint": "Це може зайняти деякий час",
+      "import_auto_tags": "Автоматично визначено теги:",
+      "import_ready": "Моди готові до використання!",
+      "great": "Чудово!",
+      "favorites": "Улюблені",
+      "move_to_character": "Прив'язано до {character}",
+      "saving_tag": "Збереження тегу...",
+      "mod_assigned": "Мод \"{mod}\" прив'язано до {character}"
+    },
+    "context_menu": {
+      "edit": "Редагувати",
+      "add_image": "Додати фото",
+      "favorite_add": "В улюблені",
+      "favorite_remove": "Видалити з улюблених",
+      "activate": "Активувати",
+      "deactivate": "Деактивувати"
+    },
+    "import": {
+      "tag_hint": "Розпізнає {count} персонажів",
+      "auto_tag_summary": "Автоматично встановлено {count} {plural}",
+      "auto_tag_and_more": "та ще {count}...",
+      "single": "мод",
+      "plural": "модів",
+      "success_single": "Додано {count} мод",
+      "success_plural": "Додано {count} модів"
+    }
+  },
+  "clipboard": {
+    "empty": "Буфер обміну порожній",
+    "no_paths": "Не знайдено шляхів до папок",
+    "no_valid": "Не знайдено валідних папок з модами"
+  },
+  "settings": {
+    "title": "Налаштування",
+    "loading": "Завантаження налаштувань...",
+    "save_success": "Конфігурацію збережено",
+    "errors": {
+      "generic": "Помилка: {message}"
+    },
+    "sections": {
+      "paths": "Шляхи до модів",
+      "language": "Мова",
+      "auto_tag": "Автотегування",
+      "auto_f10": "Автоматичне F10",
+      "appearance": "Зовнішній вигляд"
+    },
+    "paths": {
+      "mods": "Папка з модами",
+      "mods_hint": "Шлях до папки з оригінальними модами",
+      "save_mods": "Папка links",
+      "save_mods_hint": "Шлях, де створюватимуться симлінки",
+      "browse": "Огляд"
+    },
+    "language": {
+      "title": "Мова",
+      "label": "Мова застосунку",
+      "english": "Англійська",
+      "ukrainian": "Українська",
+      "changed": "Мову змінено на {language}",
+      "error": "Не вдалося змінити мову: {message}"
+    },
+    "actions": {
+      "save_configuration": "Зберегти конфігурацію"
+    },
+    "info": {
+      "symlinks": "Додаток використовує символічні посилання, щоб керувати модами без копіювання файлів."
+    },
+    "appearance": {
+      "dark_mode": "Темна тема"
+    },
+    "auto_tag": {
+      "title": "Автоматичне тегування",
+      "description": "Система автоматично визначає персонажів з назв папок модів і встановлює відповідні теги.",
+      "import_hint": "Автоматично при імпорті нових модів",
+      "characters_supported": "Розпізнає {count} персонажів",
+      "naming_hint": "Назва має містити ім'я персонажа (напр. \"Ellen_Summer\")",
+      "example": "Приклад: папка \"Miyabi_Kimono\" автоматично отримає тег Miyabi",
+      "run_action": "Визначити теги для всіх модів",
+      "dialog_title": "Визначаю теги...",
+      "dialog_message": "Аналізую назви модів",
+      "no_mods": "Не знайдено модів для автотегування",
+      "success_title": "Теги визначено!",
+      "success_message": "Моди згруповано за персонажами!",
+      "ok": "Чудово!",
+      "note": "Функція аналізує всі моди без тегів і намагається визначити персонажів автоматично",
+      "summary": "Автоматично встановлено {count} {plural}",
+      "tag_single": "тег",
+      "tag_plural": "тегів",
+      "list_title": "Виявлені теги:",
+      "error": "Помилка автотегування: {message}"
+    },
+    "auto_f10": {
+      "title": "Автоматичне перезавантаження модів",
+      "description": "Додаток автоматично відправляє F10 для перезавантаження модів у 3DMigoto/XXMI після активації/деактивації.",
+      "enabled": "Увімкнено - F10 відправляється автоматично при активації/деактивації модів",
+      "disabled": "Вимкнено - F10 потрібно натискати вручну",
+      "install_dependencies": "Встановити залежності",
+      "show_instructions": "Показати інструкції",
+      "status_title": "Автоматичне F10",
+      "requirements": {
+        "launcher": "XXMI Launcher встановлено та налаштовано",
+        "config": "У d3dx.ini є рядок: reload_fixes = no_modifiers VK_F10",
+        "tools": "Рекомендовано: xdotool (X11) або ydotool (Wayland)"
+      },
+      "instructions": {
+        "step1_title": "1. Встановіть XXMI Launcher:",
+        "step1_link": "github.com/SpectrumQT/XXMI-Installer",
+        "step2_title": "2. Переконайтеся, що у d3dx.ini є рядок:",
+        "step2_code": "reload_fixes = no_modifiers VK_F10",
+        "step3_title": "3. Встановіть утиліти:",
+        "step3_platform": "Ubuntu/Debian:",
+        "step3_code": "sudo apt install xdotool ydotool wmctrl",
+        "step4_title": "4. Надайте права для Wayland:",
+        "step4_code": "sudo usermod -a -G input $USER\nsudo systemctl enable --now ydotool.service\n\n# Потім перезавантажте систему",
+        "warning_title": "Важливо для Wayland:",
+        "warning_body": "Вікно гри має бути видимим (не згорнутим), інакше F10 не спрацює!",
+        "workflow_title": "Рекомендований порядок дій:",
+        "workflow_step1": "1. Запустіть гру",
+        "workflow_step2": "2. Alt+Tab до менеджера модів",
+        "workflow_step3": "3. Активуйте мод",
+        "workflow_step4": "4. Alt+Tab назад у гру",
+        "workflow_step5": "5. ✅ F10 буде надіслано автоматично",
+        "details_file": "Детальні інструкції див. у WAYLAND_SETUP.md"
+      }
+    },
+    "dialogs": {
+      "dependencies_title": "Налаштування F10",
+      "dependencies_message": "Перевірте термінал для інструкцій встановлення",
+      "instructions_title": "Інструкції F10",
+      "ok": "Зрозуміло"
+    }
+  },
+  "language_names": {
+    "en": "English",
+    "uk": "Українська"
+  },
+  "common": {
+    "unknown": "Невідомо"
+  },
+  "welcome": {
+    "title": "Ласкаво просимо до ZZZ Mod Manager!",
+    "subtitle": "Давайте налаштуємо додаток для першого запуску",
+    "step_of": "Крок {current} з {total}",
+    "language": {
+      "title": "Оберіть мову",
+      "description": "Виберіть мову, яку ви хочете використовувати"
+    },
+    "directories": {
+      "title": "Налаштуйте директорії для модів",
+      "description": "Вкажіть, де зберігаються ваші моди та де будуть створюватися симлінки",
+      "mods_label": "Папка з модами",
+      "mods_hint": "Шлях до папки з оригінальними модами",
+      "save_mods_label": "Папка links",
+      "save_mods_hint": "Шлях, де створюватимуться симлінки",
+      "browse": "Огляд",
+      "validation_error": "Будь ласка, вкажіть обидві директорії"
+    },
+    "complete": {
+      "title": "Все готово!",
+      "description": "Ви готові почати керувати своїми модами",
+      "start": "Почати використання"
+    },
+    "actions": {
+      "next": "Далі",
+      "back": "Назад",
+      "finish": "Завершити"
+    }
+  }
+}

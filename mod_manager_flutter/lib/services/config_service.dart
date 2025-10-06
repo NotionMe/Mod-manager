@@ -13,6 +13,7 @@ class ConfigService {
   static const String _keyLanguage = 'language';
   static const String _keyModCharacterTags = 'mod_character_tags';
   static const String _keyFavoriteMods = 'favorite_mods';
+  static const String _keyFirstRun = 'first_run';
 
   final SharedPreferences _prefs;
   File? _configFile;
@@ -33,7 +34,8 @@ class ConfigService {
   List<String> get activeMods => _prefs.getStringList(_keyActiveMods) ?? [];
   List<String> get favoriteMods => _prefs.getStringList(_keyFavoriteMods) ?? [];
   String get theme => _prefs.getString(_keyTheme) ?? 'dark-blue';
-  String get language => _prefs.getString(_keyLanguage) ?? 'uk';
+  String get language => _prefs.getString(_keyLanguage) ?? 'en';
+  bool get isFirstRun => _prefs.getBool(_keyFirstRun) ?? true;
   
   Map<String, String> get modCharacterTags {
     final json = _prefs.getString(_keyModCharacterTags);
@@ -197,6 +199,16 @@ class ConfigService {
     }
   }
 
+  Future<bool> setFirstRunComplete() async {
+    try {
+      await _prefs.setBool(_keyFirstRun, false);
+      await _saveToFile();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<bool> loadFromFile() async {
     try {
       if (_configFile == null || !await _configFile!.exists()) return false;
@@ -226,6 +238,9 @@ class ConfigService {
       if (config.containsKey('favorite_mods')) {
         final List<String> mods = List<String>.from(config['favorite_mods']);
         await _prefs.setStringList(_keyFavoriteMods, mods);
+      }
+      if (config.containsKey('first_run')) {
+        await _prefs.setBool(_keyFirstRun, config['first_run']);
       }
 
       return true;

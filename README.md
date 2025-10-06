@@ -110,37 +110,108 @@ flutter build linux --release
 
 ## 🚀 Quick Start
 
-### First Launch
+### First Launch - Welcome Screen
 
-1. **Launch the application**:
-   ```bash
-   zzz-mod-manager
-   ```
+When you launch the application for the first time, you'll see a **Welcome Screen** that guides you through initial setup:
 
-2. **Configure paths**:
-   - Click the ⚙️ Settings button
-   - Set your **Mods Path** (where 3DMigoto loads mods from)
-   - Set your **SaveMods Path** (where you store your mod collection)
+#### Step 1: Choose Your Language
+- Select between **English** or **Українська** (Ukrainian)
+- The interface will immediately switch to your chosen language
 
-3. **Import mods**:
-   - Use Drag & Drop to add mod folders
+#### Step 2: Configure Directories
+You need to configure two directories:
+
+**1. Mods Folder (Link/Target Directory)**
+- This is where 3DMigoto/XXMI loads mods **FROM**
+- Usually located at: `XXMI-Launcher/ZZMI/Mods` or similar
+- Example paths:
+  - `/mnt/games/HoYoPlay/games/XXMI-Launcher/ZZMI/Mods`
+  - `C:\Games\XXMI-Launcher\ZZMI\Mods` (Windows)
+- **What happens here**: Active mod symbolic links are created in this folder
+
+**2. SaveMods Folder (Storage/Library Directory)**
+- This is where you **STORE** your downloaded mods collection
+- Can be anywhere on your system
+- Example paths:
+  - `/home/user/MyZZZMods`
+  - `D:\ZZZ_Mod_Collection`
+- **What happens here**: Your original mod folders are kept safely here
+
+**💡 How it works:**
+```
+SaveMods Folder (Your Library)     →     Mods Folder (Active Mods)
+├── Ellen_BeachOutfit/             →     [symlink] → Ellen_BeachOutfit/
+├── Miyabi_Kimono/                        (inactive, no link)
+├── Burnice_Casual/                →     [symlink] → Burnice_Casual/
+└── Jane_SchoolGirl/                      (inactive, no link)
+```
+- Activating a mod = Creating a symbolic link from Mods folder → SaveMods folder
+- Deactivating a mod = Removing the symbolic link
+- Your original files in SaveMods stay untouched! ✅
+
+#### Step 3: Ready!
+- Click **Finish** to complete setup
+- You'll see the main screen and can start managing mods
+
+### After Initial Setup
+
+1. **Import mods**:
+   - Use Drag & Drop to add mod folders to your SaveMods directory
    - Or press Ctrl+V to paste paths
    - Or click the "+" card to use file picker
+   - The app will automatically detect character names from folder names
 
-4. **Activate mods**:
+2. **Activate mods**:
    - Click on a mod card to enable/disable it
+   - Enabled mods get a symbolic link created in your Mods folder
    - Use Single/Multi toggle to choose activation mode
    - Press F10 in game (or use auto-reload feature)
 
-### Understanding Paths
+3. **Organize by characters**:
+   - Click on character avatars to filter mods
+   - Drag and drop mods between characters
+   - The app auto-tags mods based on folder names
 
-- **Mods Path**: The directory where 3DMigoto loads active mods
-  - Example: `/path/to/3DMigoto/Mods`
-  - Active mod symbolic links are created here
+### Understanding the Two Folders
 
-- **SaveMods Path**: Your mod library/storage location
-  - Example: `/path/to/3DMigoto/SaveMods`
-  - Original mod folders are stored here
+#### 📁 SaveMods Folder (Your Library)
+- **Purpose**: Permanent storage for ALL your mods
+- **Location**: Anywhere you want (external drive, separate partition, etc.)
+- **Contents**: All downloaded mods, organized as you like
+- **Safety**: Your original files never change
+- **Example structure**:
+  ```
+  /home/user/MyZZZMods/
+  ├── Ellen_BeachOutfit/
+  │   ├── EllenBeach.ini
+  │   ├── textures/
+  │   └── ...
+  ├── Miyabi_Kimono/
+  │   ├── MiyabiKimono.ini
+  │   └── ...
+  └── Burnice_Casual/
+      └── ...
+  ```
+
+#### 🔗 Mods Folder (Active Mods - Links Only)
+- **Purpose**: Where 3DMigoto loads mods FROM during gameplay
+- **Location**: Inside your XXMI/3DMigoto installation
+- **Contents**: Symbolic links ONLY (no actual files)
+- **Managed by**: This mod manager (don't manually edit!)
+- **Example structure**:
+  ```
+  /path/to/XXMI-Launcher/ZZMI/Mods/
+  ├── Ellen_BeachOutfit → /home/user/MyZZZMods/Ellen_BeachOutfit/
+  ├── Burnice_Casual → /home/user/MyZZZMods/Burnice_Casual/
+  └── (links to active mods only)
+  ```
+
+**Why this system?**
+- ✅ No file duplication - saves disk space
+- ✅ Instant enable/disable - just create/remove links
+- ✅ Safe - original files never modified
+- ✅ Organized - keep your library separate from active mods
+- ✅ Flexible - move your SaveMods folder anywhere without breaking anything
 
 ## ⚡ F10 Auto-Reload
 
