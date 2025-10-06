@@ -163,4 +163,16 @@ class ApiService {
       throw Exception('Помилка автотегування: $e');
     }
   }
+
+  /// Перевіряє, чи це перший запуск додатку
+  static Future<bool> isFirstRun() async {
+    await initialize();
+    return _configService!.isFirstRun;
+  }
+
+  /// Завершує початкове налаштування
+  static Future<void> completeFirstRun() async {
+    await initialize();
+    await _configService!.setFirstRunComplete();
+  }
 }

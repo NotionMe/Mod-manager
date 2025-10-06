@@ -210,5 +210,34 @@
   },
   "common": {
     "unknown": "Unknown"
+  },
+  "welcome": {
+    "title": "Welcome to ZZZ Mod Manager!",
+    "subtitle": "Let's set up the app for first use",
+    "step_of": "Step {current} of {total}",
+    "language": {
+      "title": "Choose your language",
+      "description": "Select the language you prefer to use"
+    },
+    "directories": {
+      "title": "Configure mod directories",
+      "description": "Specify where your mods are stored and where symlinks will be created",
+      "mods_label": "Mods folder",
+      "mods_hint": "Path where original mods are stored",
+      "save_mods_label": "Links folder",
+      "save_mods_hint": "Path where symlinks will be created",
+      "browse": "Browse",
+      "validation_error": "Please specify both directories"
+    },
+    "complete": {
+      "title": "All set!",
+      "description": "You're ready to start managing your mods",
+      "start": "Start using"
+    },
+    "actions": {
+      "next": "Next",
+      "back": "Back",
+      "finish": "Finish"
+    }
   }
 }

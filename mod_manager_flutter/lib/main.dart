@@ -7,6 +7,7 @@ import 'dart:io';
 import 'core/constants.dart';
 import 'screens/mods_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/welcome_screen.dart';
 import 'utils/state_providers.dart';
 import 'services/api_service.dart';
 import 'l10n/app_localizations.dart';
@@ -32,15 +33,47 @@ void main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Ініціалізуємо ApiService з ProviderContainer
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ApiService.initialize(container: ProviderScope.containerOf(context));
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  bool _isFirstRun = true;
+  bool _isLoading = true;
+  bool _hasCheckedFirstRun = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasCheckedFirstRun) {
+      _hasCheckedFirstRun = true;
+      _checkFirstRun();
+    }
+  }
+
+  Future<void> _checkFirstRun() async {
+    await ApiService.initialize(container: ProviderScope.containerOf(context));
+    final isFirstRun = await ApiService.isFirstRun();
+    if (mounted) {
+      setState(() {
+        _isFirstRun = isFirstRun;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onWelcomeComplete() async {
+    await ApiService.completeFirstRun();
+    setState(() {
+      _isFirstRun = false;
     });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDarkMode = ref.watch(isDarkModeProvider);
     final locale = ref.watch(localeProvider);
 
@@ -54,6 +87,16 @@ class MyApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       onGenerateTitle: (context) => context.loc.t('app.title'),
+      home: _isLoading
+          ? const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            )
+          : (_isFirstRun
+              ? WelcomeScreen(onComplete: _onWelcomeComplete)
+              : const MainScreen()),
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0EA5E9),
@@ -118,8 +161,6 @@ class MyApp extends ConsumerWidget {
           ),
         ),
       ),
-      home: const MainScreen(),
-      debugShowCheckedModeBanner: false,
     );
   }
 }
