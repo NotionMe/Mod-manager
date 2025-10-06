@@ -33,7 +33,7 @@ class ConfigService {
   List<String> get activeMods => _prefs.getStringList(_keyActiveMods) ?? [];
   List<String> get favoriteMods => _prefs.getStringList(_keyFavoriteMods) ?? [];
   String get theme => _prefs.getString(_keyTheme) ?? 'dark-blue';
-  String get language => _prefs.getString(_keyLanguage) ?? 'uk';
+  String get language => _prefs.getString(_keyLanguage) ?? 'en';
   
   Map<String, String> get modCharacterTags {
     final json = _prefs.getString(_keyModCharacterTags);

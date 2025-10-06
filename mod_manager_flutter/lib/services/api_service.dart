@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/character_info.dart';
@@ -19,6 +20,10 @@ class ApiService {
 
     if (container != null) {
       _container = container;
+      final localeCode = _configService?.language ?? 'en';
+      _container!
+          .read(localeProvider.notifier)
+          .state = Locale(localeCode);
     }
 
     if (_modManager == null) {

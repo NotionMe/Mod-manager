@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'dart:io';
 import 'core/constants.dart';
 import 'screens/mods_screen.dart';
 import 'screens/settings_screen.dart';
 import 'utils/state_providers.dart';
 import 'services/api_service.dart';
+import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,9 +42,18 @@ class MyApp extends ConsumerWidget {
       ApiService.initialize(container: ProviderScope.containerOf(context));
     });
     final isDarkMode = ref.watch(isDarkModeProvider);
+    final locale = ref.watch(localeProvider);
 
     return MaterialApp(
-      title: 'ZZZ Mod Manager',
+      locale: locale,
+      supportedLocales: const [Locale('en'), Locale('uk')],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      onGenerateTitle: (context) => context.loc.t('app.title'),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0EA5E9),
