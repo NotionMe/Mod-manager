@@ -5,15 +5,17 @@ import '../models/character_info.dart';
 import '../core/constants.dart';
 import '../utils/state_providers.dart';
 import 'config_service.dart';
-import 'f10_reload_service.dart';
+import 'platform_service.dart';
+import 'platform_service_factory.dart';
 
 /// Головний сервіс для керування модами через symbolic links
 class ModManagerService {
   final ConfigService _configService;
-  final F10ReloadService _f10ReloadService = F10ReloadService();
+  final PlatformService _platformService;
   final ProviderContainer _container;
 
-  ModManagerService(this._configService, this._container);
+  ModManagerService(this._configService, this._container)
+      : _platformService = PlatformServiceFactory.getInstance();
 
   String? get modsPath => _configService.modsPath;
   String? get saveModsPath => _configService.saveModsPath;
@@ -70,6 +72,7 @@ class ModManagerService {
     try {
       final modNames = await scanMods();
       final modsInfo = <ModInfo>[];
+      final favoriteSet = _configService.favoriteMods.toSet();
 
       // Очищуємо символічні посилання на неіснуючі моди
       await _cleanupInvalidLinks();
@@ -85,6 +88,7 @@ class ModManagerService {
             characterId: 'unknown',
             isActive: isActive,
             imagePath: imagePath,
+            isFavorite: favoriteSet.contains(modName),
           ),
         );
       }
@@ -134,8 +138,8 @@ class ModManagerService {
       final exists = await FileSystemEntity.type(linkPath) != FileSystemEntityType.notFound;
       if (!exists) return false;
 
-      final isLink = await FileSystemEntity.isLink(linkPath);
-      return isLink;
+      // Використовуємо platformService для перевірки
+      return await _platformService.isModLink(linkPath);
     } catch (e) {
       return false;
     }
@@ -157,22 +161,24 @@ class ModManagerService {
         await saveModsDir.create(recursive: true);
       }
 
-      final dst = Link(dstPath);
-      if (await dst.exists() || await FileSystemEntity.isLink(dstPath)) {
-        await _safeRemove(dstPath);
+      // Використовуємо platformService для створення link
+      final success = await _platformService.createModLink(srcPath, dstPath);
+      if (!success) {
+        print('ModManagerService: Не вдалося створити link для $modName');
+        return false;
       }
 
-      await Link(dstPath).create(srcPath, recursive: false);
       await _configService.addActiveMod(modName);
 
       // Автоматично перезавантажуємо моди після активації (якщо увімкнено)
       final autoF10Enabled = _container.read(autoF10ReloadProvider);
       if (autoF10Enabled) {
-        await _f10ReloadService.reloadMods(saveModsPath);
+        await _platformService.sendF10ToGame();
       }
 
       return true;
     } catch (e) {
+      print('ModManagerService: Помилка активації мода: $e');
       return false;
     }
   }
@@ -185,20 +191,24 @@ class ModManagerService {
       final exists = await FileSystemEntity.type(linkPath) != FileSystemEntityType.notFound;
       if (!exists) return false;
 
-      final isLink = await FileSystemEntity.isLink(linkPath);
-      if (!isLink) return false;
+      // Використовуємо platformService для видалення link
+      final success = await _platformService.removeModLink(linkPath);
+      if (!success) {
+        print('ModManagerService: Не вдалося видалити link для $modName');
+        return false;
+      }
 
-      await Link(linkPath).delete();
       await _configService.removeActiveMod(modName);
 
       // Автоматично перезавантажуємо моди після деактивації (якщо увімкнено)
       final autoF10Enabled = _container.read(autoF10ReloadProvider);
       if (autoF10Enabled) {
-        await _f10ReloadService.reloadMods(saveModsPath);
+        await _platformService.sendF10ToGame();
       }
 
       return true;
     } catch (e) {
+      print('ModManagerService: Помилка деактивації мода: $e');
       return false;
     }
   }
@@ -228,31 +238,39 @@ class ModManagerService {
 
   /// Ручне перезавантаження модів (натискання F10)
   Future<bool> reloadMods() async {
-    return await _f10ReloadService.reloadMods(saveModsPath);
+    return await _platformService.sendF10ToGame();
   }
 
   /// Показує інструкції налаштування F10 сервісу
   void showF10SetupInstructions() {
-    _f10ReloadService.showSetupInstructions();
+    _platformService.showSetupInstructions();
   }
 
   /// Встановлює залежності для F10 сервісу
   Future<void> installF10Dependencies() async {
-    await _f10ReloadService.installDependencies();
+    await _platformService.checkDependencies();
   }
 
   Future<void> _safeRemove(String filePath) async {
     try {
+      // Використовуємо platformService для видалення links
+      final isLink = await _platformService.isModLink(filePath);
+      
+      if (isLink) {
+        await _platformService.removeModLink(filePath);
+        return;
+      }
+      
+      // Якщо це не link, видаляємо звичайним способом
       final entity = await FileSystemEntity.type(filePath);
-
-      if (entity == FileSystemEntityType.link) {
-        await Link(filePath).delete();
-      } else if (entity == FileSystemEntityType.directory) {
+      if (entity == FileSystemEntityType.directory) {
         await Directory(filePath).delete(recursive: true);
       } else if (entity == FileSystemEntityType.file) {
         await File(filePath).delete();
       }
-    } catch (e) {}
+    } catch (e) {
+      print('ModManagerService: Помилка _safeRemove: $e');
+    }
   }
 
   /// Імпортує нові моди з вказаних папок

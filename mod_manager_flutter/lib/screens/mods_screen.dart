@@ -31,6 +31,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
   bool isLoading = false;
   String? errorMessage;
   Map<String, String> modCharacterTags = {}; // modId -> characterId
+  Set<String> favoriteMods = {};
   late AnimationController _loadingAnimationController;
   late Animation<double> _loadingAnimation;
 
@@ -109,21 +110,25 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
     // Перезавантажуємо моди, щоб оновити UI з новими тегами
     // Це необхідно, бо мод може переміститись в іншу категорію персонажа
-    await loadMods();
+    await loadMods(showLoading: false);
   }
 
-  Future<void> loadMods() async {
+  Future<void> loadMods({bool showLoading = true}) async {
     // Prevent multiple simultaneous load operations
     if (_isLoadingMods) return;
     _isLoadingMods = true;
 
     setState(() {
-      isLoading = true;
+      if (showLoading) {
+        isLoading = true;
+      }
       errorMessage = null;
     });
 
     try {
       final loadedMods = await ApiService.getMods();
+      final configService = await ApiService.getConfigService();
+      final favoriteSet = configService.favoriteMods.toSet();
       final Map<String, List<ModInfo>> characterMods = {};
       final List<ModInfo> allMods = [];
       final List<String> validModIds = [];
@@ -160,6 +165,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           characterId: charId,
           isActive: oldMod.isActive,
           imagePath: imagePath,
+          isFavorite: favoriteSet.contains(oldMod.id),
         );
 
         // Додаємо в загальний список
@@ -172,16 +178,28 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       }
 
       // Очищуємо теги для видалених модів
-      final configService = await ApiService.getConfigService();
       await configService.cleanupInvalidTags(validModIds);
 
       // Перезавантажуємо теги після очищення
       setState(() {
         modCharacterTags = configService.modCharacterTags;
+        favoriteMods = favoriteSet;
       });
 
       // Створюємо список персонажів, додаючи "ALL" на початок
       final characters = <CharacterInfo>[];
+
+      final favoritesList = allMods.where((mod) => mod.isFavorite).toList();
+      if (favoritesList.isNotEmpty) {
+        characters.add(
+          CharacterInfo(
+            id: 'favorites',
+            name: 'Улюблені',
+            iconPath: null,
+            skins: favoritesList,
+          ),
+        );
+      }
 
       // Додаємо "ALL" персонаж якщо є моди
       if (allMods.isNotEmpty) {
@@ -211,11 +229,35 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       );
 
       // Only update state if it actually changed to prevent unnecessary rebuilds
+      final previousCharacters = ref.read(charactersProvider);
+      final selectedIndex = ref.read(selectedCharacterIndexProvider);
+      String? previousSelectedId;
+      if (previousCharacters.isNotEmpty &&
+          selectedIndex >= 0 &&
+          selectedIndex < previousCharacters.length) {
+        previousSelectedId = previousCharacters[selectedIndex].id;
+      }
+
       if (_charactersActuallyChanged(characters)) {
         _lastCharactersState = List.from(characters);
         ref.read(charactersProvider.notifier).state = characters;
       }
-      setState(() => isLoading = false);
+
+      if (previousSelectedId != null && characters.isNotEmpty) {
+        final newIndex = characters.indexWhere(
+          (char) => char.id == previousSelectedId,
+        );
+        ref.read(selectedCharacterIndexProvider.notifier).state =
+            newIndex != -1 ? newIndex : 0;
+      } else if (characters.isNotEmpty) {
+        ref.read(selectedCharacterIndexProvider.notifier).state = 0;
+      }
+
+      if (showLoading) {
+        setState(() => isLoading = false);
+      } else if (mounted) {
+        setState(() {});
+      }
     } catch (e) {
       setState(() {
         errorMessage = e.toString();
@@ -343,6 +385,66 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     }
   }
 
+  Future<void> _toggleFavorite(ModInfo mod) async {
+    try {
+      final configService = await ApiService.getConfigService();
+      final isFavorite = favoriteMods.contains(mod.id);
+
+      if (isFavorite) {
+        await configService.removeFavoriteMod(mod.id);
+      } else {
+        await configService.addFavoriteMod(mod.id);
+      }
+
+      if (mounted) {
+        setState(() {
+          final updatedFavorites = Set<String>.from(favoriteMods);
+          if (isFavorite) {
+            updatedFavorites.remove(mod.id);
+          } else {
+            updatedFavorites.add(mod.id);
+          }
+          favoriteMods = updatedFavorites;
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isFavorite ? 'Видалено з улюблених' : 'Додано до улюблених',
+            ),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+            width: 240,
+          ),
+        );
+      }
+
+      await loadMods(showLoading: false);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Помилка: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _refreshModsList() async {
+    if (_isLoadingMods) return;
+    await loadMods(showLoading: false);
+    if (!mounted || errorMessage != null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Список модів оновлено'),
+        duration: Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+        width: 220,
+      ),
+    );
+  }
+
   Widget _buildAutoF10Toggle() {
     final autoF10Enabled = ref.watch(autoF10ReloadProvider);
 
@@ -422,6 +524,78 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                   const SizedBox(width: 6),
                   Text(
                     'F10',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefreshModsButton() {
+    final isBusy = isLoading || _isLoadingMods;
+
+    return Tooltip(
+      message: 'Оновити список модів',
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6366F1).withOpacity(0.3),
+              blurRadius: 8,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isBusy ? null : _refreshModsList,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(scale: animation, child: child),
+                    ),
+                    child: isBusy
+                        ? const SizedBox(
+                            key: ValueKey('loader'),
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.sync,
+                            key: ValueKey('icon'),
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Оновити',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -590,7 +764,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           FilledButton(
             onPressed: () async {
               await _saveTag(mod.id, selectedChar.value);
-              await loadMods();
+              await loadMods(showLoading: false);
               Navigator.pop(context);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -640,6 +814,21 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           ),
           onTap: () {
             Future.delayed(Duration.zero, () => _pasteImageFromClipboard(mod));
+          },
+        ),
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(
+                mod.isFavorite ? Icons.star : Icons.star_border,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(mod.isFavorite ? 'Видалити з улюблених' : 'В улюблені'),
+            ],
+          ),
+          onTap: () {
+            Future.delayed(Duration.zero, () => _toggleFavorite(mod));
           },
         ),
         PopupMenuItem(
@@ -738,7 +927,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
             ),
             const SizedBox(height: 24),
             TextButton.icon(
-              onPressed: loadMods,
+              onPressed: () => loadMods(),
               icon: const Icon(Icons.refresh),
               label: const Text('Спробувати знову'),
             ),
@@ -820,6 +1009,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                       const Spacer(),
                       // Auto F10 toggle
                       _buildAutoF10Toggle(),
+                      const SizedBox(width: 12),
+                      _buildRefreshModsButton(),
                       const SizedBox(width: 12),
                       // F10 Reload button
                       _buildF10ReloadButton(),
@@ -1266,6 +1457,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           isDarkMode: isDarkMode,
           modCharacterTags: modCharacterTags,
           getCharacterName: _getCharacterName,
+          onFavoriteToggle: () {},
         ),
       ),
       child: Tooltip(
@@ -1281,6 +1473,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
             isDarkMode: isDarkMode,
             modCharacterTags: modCharacterTags,
             getCharacterName: _getCharacterName,
+            onFavoriteToggle: () => _toggleFavorite(mod),
           ),
         ),
       ),
@@ -1315,7 +1508,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       for (int j = 0; j < newChar.skins.length; j++) {
         if (oldChar.skins[j].id != newChar.skins[j].id ||
             oldChar.skins[j].isActive != newChar.skins[j].isActive ||
-            oldChar.skins[j].name != newChar.skins[j].name) {
+            oldChar.skins[j].name != newChar.skins[j].name ||
+            oldChar.skins[j].isFavorite != newChar.skins[j].isFavorite) {
           return true;
         }
       }
@@ -1470,7 +1664,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       });
 
       // Перезавантажуємо список модів
-      await loadMods();
+      await loadMods(showLoading: false);
 
       if (mounted) {
         // Показуємо детальне повідомлення про успіх

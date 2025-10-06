@@ -35,6 +35,7 @@ class ModInfo {
   final bool isActive;
   final String? imagePath;
   final String? description;
+  final bool isFavorite;
 
   ModInfo({
     required this.id,
@@ -43,6 +44,7 @@ class ModInfo {
     required this.isActive,
     this.imagePath,
     this.description,
+    this.isFavorite = false,
   });
 
   factory ModInfo.fromJson(Map<String, dynamic> json) {
@@ -53,6 +55,7 @@ class ModInfo {
       isActive: json['is_active'] as bool,
       imagePath: json['image_path'] as String?,
       description: json['description'] as String?,
+      isFavorite: json['is_favorite'] as bool? ?? false,
     );
   }
 
@@ -64,6 +67,7 @@ class ModInfo {
       'is_active': isActive,
       'image_path': imagePath,
       'description': description,
+      'is_favorite': isFavorite,
     };
   }
 
@@ -74,6 +78,7 @@ class ModInfo {
     bool? isActive,
     String? imagePath,
     String? description,
+    bool? isFavorite,
   }) {
     return ModInfo(
       id: id ?? this.id,
@@ -82,6 +87,7 @@ class ModInfo {
       isActive: isActive ?? this.isActive,
       imagePath: imagePath ?? this.imagePath,
       description: description ?? this.description,
+      isFavorite: isFavorite ?? this.isFavorite,
     );
   }
 }
