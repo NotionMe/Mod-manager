@@ -12,6 +12,7 @@ class ConfigService {
   static const String _keyTheme = 'theme';
   static const String _keyLanguage = 'language';
   static const String _keyModCharacterTags = 'mod_character_tags';
+  static const String _keyFavoriteMods = 'favorite_mods';
 
   final SharedPreferences _prefs;
   File? _configFile;
@@ -30,6 +31,7 @@ class ConfigService {
   String? get modsPath => _prefs.getString(_keyModsPath);
   String? get saveModsPath => _prefs.getString(_keySaveModsPath);
   List<String> get activeMods => _prefs.getStringList(_keyActiveMods) ?? [];
+  List<String> get favoriteMods => _prefs.getStringList(_keyFavoriteMods) ?? [];
   String get theme => _prefs.getString(_keyTheme) ?? 'dark-blue';
   String get language => _prefs.getString(_keyLanguage) ?? 'uk';
   
@@ -82,6 +84,32 @@ class ConfigService {
         await _prefs.setStringList(_keyActiveMods, mods);
         await _saveToFile();
       }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> addFavoriteMod(String modId) async {
+    try {
+      final mods = favoriteMods;
+      if (!mods.contains(modId)) {
+        mods.add(modId);
+        await _prefs.setStringList(_keyFavoriteMods, mods);
+        await _saveToFile();
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> removeFavoriteMod(String modId) async {
+    try {
+      final mods = favoriteMods;
+      mods.remove(modId);
+      await _prefs.setStringList(_keyFavoriteMods, mods);
+      await _saveToFile();
       return true;
     } catch (e) {
       return false;
@@ -195,6 +223,10 @@ class ConfigService {
       if (config.containsKey('mod_character_tags')) {
         await _prefs.setString(_keyModCharacterTags, jsonEncode(config['mod_character_tags']));
       }
+      if (config.containsKey('favorite_mods')) {
+        final List<String> mods = List<String>.from(config['favorite_mods']);
+        await _prefs.setStringList(_keyFavoriteMods, mods);
+      }
 
       return true;
     } catch (e) {
@@ -210,6 +242,7 @@ class ConfigService {
         'mods_path': modsPath ?? '',
         'save_mods_path': saveModsPath ?? '',
         'active_mods': activeMods,
+        'favorite_mods': favoriteMods,
         'theme': theme,
         'language': language,
         'mod_character_tags': modCharacterTags,

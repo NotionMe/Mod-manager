@@ -65,7 +65,11 @@ class CharacterCardsListWidget extends ConsumerWidget {
     Map<String, String> modCharacterTags,
   ) {
     return DragTarget<ModInfo>(
+      onWillAccept: (_) => character.id != 'favorites',
       onAcceptWithDetails: (details) async {
+        if (character.id == 'favorites') {
+          return;
+        }
         // Показуємо повідомлення про початок обробки
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -182,7 +186,20 @@ class CharacterCardsListWidget extends ConsumerWidget {
                               size: AppConstants.characterCardWidth * 0.5,
                               color: Colors.white,
                             ),
-                          )
+                        )
+                      : character.id == 'favorites'
+                          ? Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFF97316), Color(0xFFFACC15)],
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.star,
+                                size: AppConstants.characterCardWidth * 0.5,
+                                color: Colors.white,
+                              ),
+                            )
                         : character.iconPath != null
                             ? Image.asset(
                                 character.iconPath!,
@@ -199,9 +216,9 @@ class CharacterCardsListWidget extends ConsumerWidget {
                             : Container(
                                 color: Colors.grey.withOpacity(0.2),
                                 child: Icon(
-                                  Icons.person,
-                                  size: AppConstants.characterCardWidth * 0.5,
-                                  color: Colors.grey[600],
+                          Icons.person,
+                          size: AppConstants.characterCardWidth * 0.5,
+                          color: Colors.grey[600],
                                 ),
                               ),
                   ),

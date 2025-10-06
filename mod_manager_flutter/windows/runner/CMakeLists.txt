@@ -16,6 +16,21 @@ add_executable(${BINARY_NAME} WIN32
   "runner.exe.manifest"
 )
 
+# Copy custom Windows icon from Flutter assets if available.
+set(APP_ICON_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/../../assets/app_icon.ico")
+set(APP_ICON_DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/resources/app_icon.ico")
+if (EXISTS "${APP_ICON_SOURCE}")
+  add_custom_command(
+    TARGET ${BINARY_NAME} PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${APP_ICON_SOURCE}"
+      "${APP_ICON_DESTINATION}"
+    COMMENT "Updating Windows app icon from assets"
+  )
+else()
+  message(STATUS "Windows app icon not found at ${APP_ICON_SOURCE}; using bundled icon.")
+endif()
+
 # Apply the standard set of build settings. This can be removed for applications
 # that need different build settings.
 apply_standard_settings(${BINARY_NAME})

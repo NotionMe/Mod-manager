@@ -72,6 +72,7 @@ class ModManagerService {
     try {
       final modNames = await scanMods();
       final modsInfo = <ModInfo>[];
+      final favoriteSet = _configService.favoriteMods.toSet();
 
       // Очищуємо символічні посилання на неіснуючі моди
       await _cleanupInvalidLinks();
@@ -87,6 +88,7 @@ class ModManagerService {
             characterId: 'unknown',
             isActive: isActive,
             imagePath: imagePath,
+            isFavorite: favoriteSet.contains(modName),
           ),
         );
       }

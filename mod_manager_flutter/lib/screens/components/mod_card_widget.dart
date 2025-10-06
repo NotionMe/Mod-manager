@@ -7,6 +7,7 @@ class ModCardWidget extends StatefulWidget {
   final bool isDarkMode;
   final Map<String, String> modCharacterTags;
   final Function(String) getCharacterName;
+  final VoidCallback onFavoriteToggle;
 
   const ModCardWidget({
     Key? key,
@@ -14,6 +15,7 @@ class ModCardWidget extends StatefulWidget {
     required this.isDarkMode,
     required this.modCharacterTags,
     required this.getCharacterName,
+    required this.onFavoriteToggle,
   }) : super(key: key);
 
   @override
@@ -127,6 +129,29 @@ class _ModCardWidgetState extends State<ModCardWidget> {
                               ),
                             ),
                           ),
+
+                        Positioned(
+                          bottom: 12,
+                          right: 12,
+                          child: Material(
+                            color: Colors.black.withOpacity(0.35),
+                            borderRadius: BorderRadius.circular(12),
+                            child: InkWell(
+                              onTap: widget.onFavoriteToggle,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: Icon(
+                                  widget.mod.isFavorite ? Icons.star : Icons.star_border,
+                                  size: 18,
+                                  color: widget.mod.isFavorite
+                                      ? const Color(0xFFFACC15)
+                                      : Colors.white.withOpacity(0.8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         
                         // Стильний статус індикатор
                         Positioned(
