@@ -45,15 +45,22 @@
       "refresh": "Оновити список модів",
       "card": "Натисніть та утримуйте для перетягування\nКлікніть для активації"
     },
+    "actions": {
+      "refresh": "Оновити"
+    },
     "headers": {
       "characters": "Персонажі",
       "active_mods": "Активні моди"
+    },
+    "characters": {
+      "empty": "Персонажів не знайдено"
     },
     "empty": {
       "title": "Завантажте моди",
       "cta": "Додати моди",
       "drag": "Перетягніть папки сюди\nабо натисніть",
-      "prompt": "Відпустіть сюди"
+      "prompt": "Відпустіть сюди",
+      "add_folders": "Додати папки"
     },
     "dialog": {
       "edit_title": "Редагувати мод",
@@ -70,7 +77,9 @@
       "import_ready": "Моди готові до використання!",
       "great": "Чудово!",
       "favorites": "Улюблені",
-      "move_to_character": "Прив'язано до {character}"
+      "move_to_character": "Прив'язано до {character}",
+      "saving_tag": "Збереження тегу...",
+      "mod_assigned": "Мод \"{mod}\" прив'язано до {character}"
     },
     "context_menu": {
       "edit": "Редагувати",
@@ -83,7 +92,11 @@
     "import": {
       "tag_hint": "Розпізнає {count} персонажів",
       "auto_tag_summary": "Автоматично встановлено {count} {plural}",
-      "auto_tag_and_more": "та ще {count}..."
+      "auto_tag_and_more": "та ще {count}...",
+      "single": "мод",
+      "plural": "модів",
+      "success_single": "Додано {count} мод",
+      "success_plural": "Додано {count} модів"
     }
   },
   "clipboard": {
@@ -95,15 +108,39 @@
     "title": "Налаштування",
     "loading": "Завантаження налаштувань...",
     "save_success": "Конфігурацію збережено",
+    "errors": {
+      "generic": "Помилка: {message}"
+    },
+    "sections": {
+      "paths": "Шляхи до модів",
+      "language": "Мова",
+      "auto_tag": "Автотегування",
+      "auto_f10": "Автоматичне F10",
+      "appearance": "Зовнішній вигляд"
+    },
     "paths": {
       "mods": "Папка з модами",
+      "mods_hint": "Шлях до папки з оригінальними модами",
       "save_mods": "Папка links",
+      "save_mods_hint": "Шлях, де створюватимуться симлінки",
       "browse": "Огляд"
     },
     "language": {
       "title": "Мова",
+      "label": "Мова застосунку",
       "english": "Англійська",
-      "ukrainian": "Українська"
+      "ukrainian": "Українська",
+      "changed": "Мову змінено на {language}",
+      "error": "Не вдалося змінити мову: {message}"
+    },
+    "actions": {
+      "save_configuration": "Зберегти конфігурацію"
+    },
+    "info": {
+      "symlinks": "Додаток використовує символічні посилання, щоб керувати модами без копіювання файлів."
+    },
+    "appearance": {
+      "dark_mode": "Темна тема"
     },
     "auto_tag": {
       "title": "Автоматичне тегування",
@@ -118,7 +155,13 @@
       "no_mods": "Не знайдено модів для автотегування",
       "success_title": "Теги визначено!",
       "success_message": "Моди згруповано за персонажами!",
-      "ok": "Чудово!"
+      "ok": "Чудово!",
+      "note": "Функція аналізує всі моди без тегів і намагається визначити персонажів автоматично",
+      "summary": "Автоматично встановлено {count} {plural}",
+      "tag_single": "тег",
+      "tag_plural": "тегів",
+      "list_title": "Виявлені теги:",
+      "error": "Помилка автотегування: {message}"
     },
     "auto_f10": {
       "title": "Автоматичне перезавантаження модів",
@@ -126,16 +169,46 @@
       "enabled": "Увімкнено - F10 відправляється автоматично при активації/деактивації модів",
       "disabled": "Вимкнено - F10 потрібно натискати вручну",
       "install_dependencies": "Встановити залежності",
-      "show_instructions": "Показати інструкції"
+      "show_instructions": "Показати інструкції",
+      "status_title": "Автоматичне F10",
+      "requirements": {
+        "launcher": "XXMI Launcher встановлено та налаштовано",
+        "config": "У d3dx.ini є рядок: reload_fixes = no_modifiers VK_F10",
+        "tools": "Рекомендовано: xdotool (X11) або ydotool (Wayland)"
+      },
+      "instructions": {
+        "step1_title": "1. Встановіть XXMI Launcher:",
+        "step1_link": "github.com/SpectrumQT/XXMI-Installer",
+        "step2_title": "2. Переконайтеся, що у d3dx.ini є рядок:",
+        "step2_code": "reload_fixes = no_modifiers VK_F10",
+        "step3_title": "3. Встановіть утиліти:",
+        "step3_platform": "Ubuntu/Debian:",
+        "step3_code": "sudo apt install xdotool ydotool wmctrl",
+        "step4_title": "4. Надайте права для Wayland:",
+        "step4_code": "sudo usermod -a -G input $USER\nsudo systemctl enable --now ydotool.service\n\n# Потім перезавантажте систему",
+        "warning_title": "Важливо для Wayland:",
+        "warning_body": "Вікно гри має бути видимим (не згорнутим), інакше F10 не спрацює!",
+        "workflow_title": "Рекомендований порядок дій:",
+        "workflow_step1": "1. Запустіть гру",
+        "workflow_step2": "2. Alt+Tab до менеджера модів",
+        "workflow_step3": "3. Активуйте мод",
+        "workflow_step4": "4. Alt+Tab назад у гру",
+        "workflow_step5": "5. ✅ F10 буде надіслано автоматично",
+        "details_file": "Детальні інструкції див. у WAYLAND_SETUP.md"
+      }
     },
     "dialogs": {
       "dependencies_title": "Налаштування F10",
       "dependencies_message": "Перевірте термінал для інструкцій встановлення",
-      "instructions_title": "Інструкції F10"
+      "instructions_title": "Інструкції F10",
+      "ok": "Зрозуміло"
     }
   },
   "language_names": {
     "en": "English",
     "uk": "Українська"
+  },
+  "common": {
+    "unknown": "Невідомо"
   }
 }

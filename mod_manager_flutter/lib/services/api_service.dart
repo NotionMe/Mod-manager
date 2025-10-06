@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:mod_manager_flutter/utils/state_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/character_info.dart';
@@ -109,10 +110,17 @@ class ApiService {
       return {
         'mods_path': _configService!.modsPath ?? '',
         'save_mods_path': _configService!.saveModsPath ?? '',
+        'language': _configService!.language,
       };
     } catch (e) {
       throw Exception('Помилка отримання конфігурації: $e');
     }
+  }
+
+  static Future<void> setLanguage(String languageCode) async {
+    await initialize();
+    await _configService!.setLanguage(languageCode);
+    _container?.read(localeProvider.notifier).state = Locale(languageCode);
   }
 
   static Future<String> updateConfig({

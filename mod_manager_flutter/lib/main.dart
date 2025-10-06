@@ -207,6 +207,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
     final currentTab = ref.watch(tabIndexProvider);
     final isDarkMode = ref.watch(isDarkModeProvider);
     final isSidebarCollapsed = ref.watch(sidebarCollapsedProvider);
+    final loc = context.loc;
 
     return Scaffold(
       body: Column(
@@ -274,7 +275,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                       onPressed: () {
                         ref.read(sidebarCollapsedProvider.notifier).state = !isSidebarCollapsed;
                       },
-                      tooltip: isSidebarCollapsed ? 'Розгорнути' : 'Згорнути',
+                      tooltip: isSidebarCollapsed ? loc.t('navigation.expand') : loc.t('navigation.collapse'),
                     ),
                   ),
                 ),
@@ -326,7 +327,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Mod Manager',
+                    loc.t('app.brand_subtitle'),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[500],
@@ -351,7 +352,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                         _buildNavItem(
                           context: context,
                           icon: Icons.dashboard_rounded,
-                          label: 'Mods',
+                          label: loc.t('navigation.mods'),
                           isActive: currentTab == 0,
                           onTap: () => ref.read(tabIndexProvider.notifier).state = 0,
                         ),
@@ -359,7 +360,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                         _buildNavItem(
                           context: context,
                           icon: Icons.settings_rounded,
-                          label: 'Settings',
+                          label: loc.t('navigation.settings'),
                           isActive: currentTab == 1,
                           onTap: () => ref.read(tabIndexProvider.notifier).state = 1,
                         ),
@@ -492,9 +493,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
               shaderCallback: (bounds) => const LinearGradient(
                 colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
               ).createShader(bounds),
-              child: const Text(
-                'ZZZ Mod Manager',
-                style: TextStyle(
+              child: Text(
+                context.loc.t('app.title'),
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,

@@ -6,6 +6,7 @@ import '../core/constants.dart';
 import '../services/api_service.dart';
 import '../utils/state_providers.dart';
 import '../utils/zzz_characters.dart';
+import '../l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -18,6 +19,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
   final _modsPathController = TextEditingController();
   final _saveModsPathController = TextEditingController();
   bool isLoading = false;
+  String _selectedLanguage = 'en';
+  bool _isUpdatingLanguage = false;
   late AnimationController _loadingAnimationController;
   late Animation<double> _loadingAnimation;
 
@@ -53,6 +56,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
       setState(() {
         _modsPathController.text = config['mods_path'] ?? '';
         _saveModsPathController.text = config['save_mods_path'] ?? '';
+        _selectedLanguage = config['language'] ?? 'en';
         isLoading = false;
       });
     } catch (e) {
@@ -75,6 +79,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
   }
 
   Future<void> saveConfig() async {
+    final loc = context.loc;
     try {
       await ApiService.updateConfig(
         modsPath: _modsPathController.text,
@@ -82,8 +87,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Configuration saved'),
+          SnackBar(
+            content: Text(loc.t('settings.save_success')),
             behavior: SnackBarBehavior.floating,
             width: 200,
           ),
@@ -93,7 +98,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(
+              loc.t('settings.errors.generic', params: {'message': '$e'}),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -103,6 +110,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.loc;
     final isDarkMode = ref.watch(isDarkModeProvider);
 
     return Column(
@@ -121,7 +129,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
           child: Row(
             children: [
               Text(
-                'Settings',
+                loc.t('settings.title'),
                 style: TextStyle(
                   fontSize: AppConstants.headerTextSize + 4,
                   fontWeight: FontWeight.w600,
@@ -172,7 +180,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                           return Opacity(
                             opacity: _loadingAnimation.value,
                             child: Text(
-                              'Завантаження налаштувань...',
+                              loc.t('settings.loading'),
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Colors.grey[600],
@@ -198,39 +206,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                         ),
                         children: [
                           // Paths Section
-                          _buildSectionTitle('Mod Directories'),
+                          _buildSectionTitle(loc.t('settings.sections.paths')),
                           const SizedBox(height: 16),
                           _buildPathField(
-                            label: 'SaveMods Path',
-                            hint: 'Path where original mods are stored',
+                            label: loc.t('settings.paths.mods'),
+                            hint: loc.t('settings.paths.mods_hint'),
                             controller: _modsPathController,
                             onBrowse: pickModsPath,
                             isDarkMode: isDarkMode,
+                            loc: loc,
                           ),
                           const SizedBox(height: 16),
                           _buildPathField(
-                            label: 'Mods Path',
-                            hint: 'Path where symlinks will be created',
+                            label: loc.t('settings.paths.save_mods'),
+                            hint: loc.t('settings.paths.save_mods_hint'),
                             controller: _saveModsPathController,
                             onBrowse: pickSaveModsPath,
                             isDarkMode: isDarkMode,
+                            loc: loc,
                           ),
                           const SizedBox(height: 32),
-                          // Auto-Tagging Section
-                          _buildSectionTitle('Автоматичне тегування'),
+                          // Language Section
+                          _buildSectionTitle(loc.t('settings.sections.language')),
                           const SizedBox(height: 16),
-                          _buildAutoTagSection(isDarkMode),
+                          _buildLanguageSelector(loc, isDarkMode),
+                          const SizedBox(height: 32),
+                          // Auto-Tagging Section
+                          _buildSectionTitle(loc.t('settings.sections.auto_tag')),
+                          const SizedBox(height: 16),
+                          _buildAutoTagSection(loc, isDarkMode),
                           const SizedBox(height: 32),
                           // F10 Reload Section
-                          _buildSectionTitle('F10 Mod Reload'),
+                          _buildSectionTitle(loc.t('settings.sections.auto_f10')),
                           const SizedBox(height: 16),
-                          _buildF10Section(isDarkMode),
+                          _buildF10Section(loc, isDarkMode),
                           const SizedBox(height: 32),
                           // Appearance Section
-                          _buildSectionTitle('Appearance'),
+                          _buildSectionTitle(loc.t('settings.sections.appearance')),
                           const SizedBox(height: 16),
                           _buildSettingRow(
-                            label: 'Dark Mode',
+                            label: loc.t('settings.appearance.dark_mode'),
                             trailing: Switch(
                               value: isDarkMode,
                               onChanged: (value) {
@@ -247,7 +262,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                             child: FilledButton.icon(
                               onPressed: saveConfig,
                               icon: const Icon(Icons.save_outlined, size: 18),
-                              label: const Text('Save Configuration'),
+                              label: Text(loc.t('settings.actions.save_configuration')),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF0EA5E9),
                                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -278,7 +293,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    'This app uses symbolic links to safely manage mods without copying files.',
+                                    loc.t('settings.info.symlinks'),
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: Colors.grey[600],
@@ -298,7 +313,98 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
     );
   }
 
-  Widget _buildAutoTagSection(bool isDarkMode) {
+  Widget _buildLanguageSelector(AppLocalizations loc, bool isDarkMode) {
+    final languageItems = {
+      'en': loc.t('language_names.en'),
+      'uk': loc.t('language_names.uk'),
+    };
+
+    return _buildSettingRow(
+      label: loc.t('settings.language.label'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedLanguage,
+              onChanged: _isUpdatingLanguage
+                  ? null
+                  : (value) => _changeLanguage(value, loc),
+              items: languageItems.entries
+                  .map(
+                    (entry) => DropdownMenuItem<String>(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          if (_isUpdatingLanguage) ...[
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: const CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ],
+        ],
+      ),
+      isDarkMode: isDarkMode,
+    );
+  }
+
+  Future<void> _changeLanguage(String? languageCode, AppLocalizations loc) async {
+    if (languageCode == null || languageCode == _selectedLanguage) {
+      return;
+    }
+
+    setState(() {
+      _selectedLanguage = languageCode;
+      _isUpdatingLanguage = true;
+    });
+
+    ref.read(localeProvider.notifier).state = Locale(languageCode);
+
+    try {
+      await ApiService.setLanguage(languageCode);
+      if (mounted) {
+        final currentLoc = context.loc;
+        final languageName = currentLoc.t('language_names.$languageCode');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              currentLoc.t(
+                'settings.language.changed',
+                params: {'language': languageName},
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final errorLoc = context.loc;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              errorLoc.t(
+                'settings.language.error',
+                params: {'message': '$e'},
+              ),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingLanguage = false);
+      }
+    }
+  }
+
+  Widget _buildAutoTagSection(AppLocalizations loc, bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -329,7 +435,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
               ),
               const SizedBox(width: 12),
               Text(
-                'Автоматичне визначення персонажів',
+                loc.t('settings.auto_tag.title'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -340,7 +446,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
           ),
           const SizedBox(height: 16),
           Text(
-            'Система автоматично визначає персонажів за назвою папки моду і встановлює відповідні теги.',
+            loc.t('settings.auto_tag.description'),
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[600],
@@ -348,11 +454,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
             ),
           ),
           const SizedBox(height: 16),
-          _buildRequirement('✓', 'Автоматично при імпорті нових модів', Colors.green),
+          _buildRequirement('✓', loc.t('settings.auto_tag.import_hint'), Colors.green),
           const SizedBox(height: 8),
-          _buildRequirement('✓', 'Розпізнає ${zzzCharactersData.length} персонажів', Colors.green),
+          _buildRequirement(
+            '✓',
+            loc.t(
+              'settings.auto_tag.characters_supported',
+              params: {'count': '${zzzCharactersData.length}'},
+            ),
+            Colors.green,
+          ),
           const SizedBox(height: 8),
-          _buildRequirement('✓', 'Назва має містити ім\'я персонажа (напр. "Ellen_Summer")', Colors.blue),
+          _buildRequirement('✓', loc.t('settings.auto_tag.naming_hint'), Colors.blue),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
@@ -373,7 +486,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Приклад: папка "Miyabi_Kimono" автоматично отримає тег Miyabi',
+                    loc.t('settings.auto_tag.example'),
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.grey[700],
@@ -389,7 +502,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
             child: FilledButton.icon(
               onPressed: _autoTagAllMods,
               icon: const Icon(Icons.auto_awesome, size: 18),
-              label: const Text('Визначити теги для всіх модів'),
+              label: Text(loc.t('settings.auto_tag.run_action')),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF8B5CF6),
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -401,7 +514,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
           ),
           const SizedBox(height: 8),
           Text(
-            'Ця функція проаналізує всі моди без тегів і спробує визначити персонажів автоматично',
+            loc.t('settings.auto_tag.note'),
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey[500],
@@ -415,10 +528,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
   }
 
   Future<void> _autoTagAllMods() async {
+    final loc = context.loc;
     setState(() => isLoading = true);
 
     try {
-      // Показуємо діалог з прогресом
       bool dialogShown = false;
       if (mounted) {
         dialogShown = true;
@@ -442,16 +555,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Визначаю теги...',
-                    style: TextStyle(
+                  Text(
+                    loc.t('settings.auto_tag.dialog_title'),
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Аналізую назви модів',
+                    loc.t('settings.auto_tag.dialog_message'),
                     style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
@@ -463,7 +576,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
 
       final autoTags = await ApiService.autoTagAllMods();
 
-      // Закриваємо діалог прогресу
       if (mounted && dialogShown) {
         Navigator.of(context).pop();
       }
@@ -471,32 +583,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
       if (autoTags.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Не знайдено модів для автотегування'),
-                  ),
-                ],
-              ),
+            SnackBar(
+              content: Text(loc.t('settings.auto_tag.no_mods')),
               backgroundColor: Colors.orange,
-              duration: Duration(seconds: 2),
+              duration: const Duration(seconds: 2),
             ),
           );
         }
       } else {
         if (mounted) {
-          // Показуємо детальне повідомлення про успіх
+          final tagLabel = autoTags.length == 1
+              ? loc.t('settings.auto_tag.tag_single')
+              : loc.t('settings.auto_tag.tag_plural');
+          final summaryText = loc.t(
+            'settings.auto_tag.summary',
+            params: {
+              'count': '${autoTags.length}',
+              'plural': tagLabel,
+            },
+          );
+
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Row(
+              title: Row(
                 children: [
-                  Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6), size: 28),
-                  SizedBox(width: 8),
-                  Text('Теги визначено!'),
+                  const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6), size: 28),
+                  const SizedBox(width: 8),
+                  Text(loc.t('settings.auto_tag.success_title')),
                 ],
               ),
               content: Column(
@@ -504,7 +618,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Автоматично встановлено ${autoTags.length} ${autoTags.length == 1 ? "тег" : "тегів"}',
+                    summaryText,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -523,17 +637,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.label,
                               color: Color(0xFF8B5CF6),
                               size: 18,
                             ),
-                            SizedBox(width: 6),
+                            const SizedBox(width: 6),
                             Text(
-                              'Визначені теги:',
-                              style: TextStyle(
+                              loc.t('settings.auto_tag.list_title'),
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF8B5CF6),
@@ -557,7 +671,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
-                              'та ще ${autoTags.length - 5}...',
+                              loc.t(
+                                'mods.import.auto_tag_and_more',
+                                params: {'count': '${autoTags.length - 5}'},
+                              ),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey[600],
@@ -569,7 +686,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Моди згруповано за персонажами!',
+                    loc.t('settings.auto_tag.success_message'),
                     style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
@@ -580,7 +697,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF8B5CF6),
                   ),
-                  child: const Text('Чудово!'),
+                  child: Text(loc.t('settings.auto_tag.ok')),
                 ),
               ],
             ),
@@ -591,12 +708,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Помилка автотегування: $e')),
-              ],
+            content: Text(
+              loc.t('settings.auto_tag.error', params: {'message': '$e'}),
             ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
@@ -610,7 +723,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
     }
   }
 
-  Widget _buildF10Section(bool isDarkMode) {
+  Widget _buildF10Section(AppLocalizations loc, bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -641,7 +754,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
               ),
               const SizedBox(width: 12),
               Text(
-                'Автоматичне перезавантаження модів',
+                loc.t('settings.auto_f10.title'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -652,7 +765,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
           ),
           const SizedBox(height: 16),
           Text(
-            'Цей додаток автоматично відправляє F10 для перезавантаження модів у 3DMigoto/XXMI після їх активації/деактивації.',
+            loc.t('settings.auto_f10.description'),
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[600],
@@ -660,14 +773,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
             ),
           ),
           const SizedBox(height: 16),
-          _buildRequirement('✓', 'XXMI Launcher встановлений і налаштований', Colors.green),
+          _buildRequirement(
+            '✓',
+            loc.t('settings.auto_f10.requirements.launcher'),
+            Colors.green,
+          ),
           const SizedBox(height: 8),
-          _buildRequirement('✓', 'У d3dx.ini: reload_fixes = no_modifiers VK_F10', Colors.green),
+          _buildRequirement(
+            '✓',
+            loc.t('settings.auto_f10.requirements.config'),
+            Colors.green,
+          ),
           const SizedBox(height: 8),
-          _buildRequirement('⚡', 'Рекомендується: xdotool (X11) або ydotool (Wayland)', Colors.orange),
+          _buildRequirement(
+            '⚡',
+            loc.t('settings.auto_f10.requirements.tools'),
+            Colors.orange,
+          ),
           const SizedBox(height: 16),
           // Auto F10 Status
-          _buildAutoF10Status(isDarkMode),
+          _buildAutoF10Status(loc, isDarkMode),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -675,7 +800,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                 child: OutlinedButton.icon(
                   onPressed: _installF10Dependencies,
                   icon: const Icon(Icons.download, size: 16),
-                  label: const Text('Встановити залежності'),
+                  label: Text(loc.t('settings.auto_f10.install_dependencies')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF0EA5E9),
                     side: const BorderSide(color: Color(0xFF0EA5E9)),
@@ -687,7 +812,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                 child: FilledButton.icon(
                   onPressed: _showF10Instructions,
                   icon: const Icon(Icons.help_outline, size: 16),
-                  label: const Text('Показати інструкції'),
+                  label: Text(loc.t('settings.auto_f10.show_instructions')),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF0EA5E9),
                   ),
@@ -729,7 +854,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
     );
   }
 
-  Widget _buildAutoF10Status(bool isDarkMode) {
+  Widget _buildAutoF10Status(AppLocalizations loc, bool isDarkMode) {
     final autoF10Enabled = ref.watch(autoF10ReloadProvider);
     
     return Container(
@@ -775,7 +900,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Автоматичне F10',
+                  loc.t('settings.auto_f10.status_title'),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -785,8 +910,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                 const SizedBox(height: 4),
                 Text(
                   autoF10Enabled 
-                      ? 'Увімкнено - F10 відправляється автоматично при активації/деактивації модів'
-                      : 'Вимкнено - F10 потрібно натискати вручну',
+                      ? loc.t('settings.auto_f10.enabled')
+                      : loc.t('settings.auto_f10.disabled'),
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.grey[600],
@@ -814,20 +939,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
     await modManagerService.installF10Dependencies();
     
     if (mounted) {
+      final loc = context.loc;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Перевірте термінал для інструкцій встановлення'),
-          backgroundColor: Color(0xFF0EA5E9),
+        SnackBar(
+          content: Text(loc.t('settings.dialogs.dependencies_message')),
+          backgroundColor: const Color(0xFF0EA5E9),
         ),
       );
     }
   }
 
   void _showF10Instructions() {
+    final loc = context.loc;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Налаштування F10'),
+        title: Text(loc.t('settings.dialogs.instructions_title')),
         content: SizedBox(
           width: 600,
           child: SingleChildScrollView(
@@ -835,16 +962,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  '1. Встановіть XXMI Launcher:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                Text(
+                  loc.t('settings.auto_f10.instructions.step1_title'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                const Text('github.com/SpectrumQT/XXMI-Installer'),
+                Text(loc.t('settings.auto_f10.instructions.step1_link')),
                 const SizedBox(height: 16),
-                const Text(
-                  '2. Переконайтеся що у d3dx.ini є рядок:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                Text(
+                  loc.t('settings.auto_f10.instructions.step2_title'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -853,18 +980,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                     color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'reload_fixes = no_modifiers VK_F10',
-                    style: TextStyle(fontFamily: 'monospace'),
+                  child: Text(
+                    loc.t('settings.auto_f10.instructions.step2_code'),
+                    style: const TextStyle(fontFamily: 'monospace'),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '3. Встановіть інструменти:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                Text(
+                  loc.t('settings.auto_f10.instructions.step3_title'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                const Text('Ubuntu/Debian:'),
+                Text(loc.t('settings.auto_f10.instructions.step3_platform')),
                 Container(
                   padding: const EdgeInsets.all(12),
                   margin: const EdgeInsets.only(top: 4, bottom: 8),
@@ -872,15 +999,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                     color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'sudo apt install xdotool ydotool wmctrl',
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  child: Text(
+                    loc.t('settings.auto_f10.instructions.step3_code'),
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '4. Для Wayland - налаштуйте права:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                Text(
+                  loc.t('settings.auto_f10.instructions.step4_title'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -889,9 +1016,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                     color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'sudo usermod -a -G input \$USER\nsudo systemctl enable --now ydotool.service\n\n# Потім перезавантажте систему',
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 11),
+                  child: Text(
+                    loc.t('settings.auto_f10.instructions.step4_code'),
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -911,7 +1038,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'ВАЖЛИВО для Wayland:',
+                              loc.t('settings.auto_f10.instructions.warning_title'),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.orange[900],
@@ -919,7 +1046,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Вікно гри має бути ВИДИМИМ (не згорнутим) щоб F10 спрацював!',
+                              loc.t('settings.auto_f10.instructions.warning_body'),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.orange[900],
@@ -932,16 +1059,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Рекомендований workflow:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                Text(
+                  loc.t('settings.auto_f10.instructions.workflow_title'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                const Text('1. Відкрийте гру', style: TextStyle(fontSize: 13)),
-                const Text('2. Alt+Tab до мод менеджера', style: TextStyle(fontSize: 13)),
-                const Text('3. Активуйте мод', style: TextStyle(fontSize: 13)),
-                const Text('4. Alt+Tab назад до гри', style: TextStyle(fontSize: 13)),
-                const Text('5. ✅ F10 відправиться автоматично', style: TextStyle(fontSize: 13)),
+                Text(loc.t('settings.auto_f10.instructions.workflow_step1'), style: const TextStyle(fontSize: 13)),
+                Text(loc.t('settings.auto_f10.instructions.workflow_step2'), style: const TextStyle(fontSize: 13)),
+                Text(loc.t('settings.auto_f10.instructions.workflow_step3'), style: const TextStyle(fontSize: 13)),
+                Text(loc.t('settings.auto_f10.instructions.workflow_step4'), style: const TextStyle(fontSize: 13)),
+                Text(loc.t('settings.auto_f10.instructions.workflow_step5'), style: const TextStyle(fontSize: 13)),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -951,7 +1078,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                     border: Border.all(color: Colors.blue[200]!),
                   ),
                   child: Text(
-                    'Детальні інструкції в файлі WAYLAND_SETUP.md',
+                    loc.t('settings.auto_f10.instructions.details_file'),
                     style: TextStyle(color: Colors.blue[900], fontSize: 12),
                   ),
                 ),
@@ -962,7 +1089,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Зрозуміло'),
+            child: Text(loc.t('settings.dialogs.ok')),
           ),
         ],
       ),
@@ -986,6 +1113,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
     required TextEditingController controller,
     required VoidCallback onBrowse,
     required bool isDarkMode,
+    required AppLocalizations loc,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1033,7 +1161,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
             OutlinedButton.icon(
               onPressed: onBrowse,
               icon: const Icon(Icons.folder_outlined, size: 18),
-              label: const Text('Browse'),
+              label: Text(loc.t('settings.paths.browse')),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 shape: RoundedRectangleBorder(

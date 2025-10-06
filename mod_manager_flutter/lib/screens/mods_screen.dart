@@ -15,6 +15,7 @@ import '../services/api_service.dart';
 import '../utils/state_providers.dart';
 import '../utils/zzz_characters.dart';
 import '../utils/path_helper.dart';
+import '../l10n/app_localizations.dart';
 import 'components/mode_toggle_widget.dart';
 import 'components/character_cards_list_widget.dart';
 import 'components/mod_card_widget.dart';
@@ -28,6 +29,7 @@ class ModsScreen extends ConsumerStatefulWidget {
 
 class _ModsScreenState extends ConsumerState<ModsScreen>
     with TickerProviderStateMixin {
+  AppLocalizations get loc => context.loc;
   bool isLoading = false;
   String? errorMessage;
   Map<String, String> modCharacterTags = {}; // modId -> characterId
@@ -194,7 +196,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         characters.add(
           CharacterInfo(
             id: 'favorites',
-            name: 'Улюблені',
+            name: loc.t('mods.favorites'),
             iconPath: null,
             skins: favoritesList,
           ),
@@ -206,7 +208,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         characters.add(
           CharacterInfo(
             id: 'all',
-            name: 'ALL',
+            name: loc.t('mods.all'),
             iconPath: null, // Використаємо іконку по замовчуванню
             skins: allMods,
           ),
@@ -316,7 +318,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(wasActive ? 'Деактивовано' : 'Активовано'),
+            content: Text(
+              wasActive
+                  ? loc.t('mods.snackbar.deactivated')
+                  : loc.t('mods.snackbar.activated'),
+            ),
             duration: AppConstants.snackBarDuration,
             behavior: SnackBarBehavior.floating,
             width: 200,
@@ -328,7 +334,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       _isOperationInProgress = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Помилка: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+              loc.t(
+                'mods.errors.generic',
+                params: {'message': e.toString()},
+              ),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -360,8 +374,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                 const SizedBox(width: 8),
                 Text(
                   success
-                      ? 'Моди перезавантажені (F10)'
-                      : 'Помилка перезавантаження',
+                      ? loc.t('mods.snackbar.reload_success')
+                      : loc.t('mods.snackbar.reload_failure'),
                 ),
               ],
             ),
@@ -375,7 +389,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Помилка: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+              loc.t(
+                'mods.errors.generic',
+                params: {'message': e.toString()},
+              ),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -412,7 +434,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isFavorite ? 'Видалено з улюблених' : 'Додано до улюблених',
+              isFavorite
+                  ? loc.t('mods.snackbar.favorites_removed')
+                  : loc.t('mods.snackbar.favorites_added'),
             ),
             duration: const Duration(seconds: 1),
             behavior: SnackBarBehavior.floating,
@@ -425,7 +449,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Помилка: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+              loc.t(
+                'mods.errors.generic',
+                params: {'message': e.toString()},
+              ),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -436,9 +468,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     await loadMods(showLoading: false);
     if (!mounted || errorMessage != null) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Список модів оновлено'),
-        duration: Duration(seconds: 1),
+      SnackBar(
+        content: Text(loc.t('mods.snackbar.list_refreshed')),
+        duration: const Duration(seconds: 1),
         behavior: SnackBarBehavior.floating,
         width: 220,
       ),
@@ -450,8 +482,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
     return Tooltip(
       message: autoF10Enabled
-          ? 'Автоматичне F10 увімкнено'
-          : 'Автоматичне F10 вимкнено',
+          ? loc.t('mods.tooltips.auto_f10_on')
+          : loc.t('mods.tooltips.auto_f10_off'),
       child: GestureDetector(
         onTap: () {
           ref.read(autoF10ReloadProvider.notifier).state = !autoF10Enabled;
@@ -491,7 +523,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
   Widget _buildF10ReloadButton() {
     return Tooltip(
-      message: 'Перезавантажити моди (F10)',
+      message: loc.t('mods.tooltips.reload'),
       child: Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -543,7 +575,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     final isBusy = isLoading || _isLoadingMods;
 
     return Tooltip(
-      message: 'Оновити список модів',
+      message: loc.t('mods.tooltips.refresh'),
       child: Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -594,9 +626,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                           ),
                   ),
                   const SizedBox(width: 6),
-                  const Text(
-                    'Оновити',
-                    style: TextStyle(
+                  Text(
+                    loc.t('mods.actions.refresh'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -660,18 +692,18 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           setState(() {});
 
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Фото оновлено'),
+            SnackBar(
+              content: Text(loc.t('mods.snackbar.photo_updated')),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 1),
+              duration: const Duration(seconds: 1),
             ),
           );
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('У буфері немає зображення'),
+            SnackBar(
+              content: Text(loc.t('mods.snackbar.clipboard_empty')),
               backgroundColor: Colors.orange,
             ),
           );
@@ -680,7 +712,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Помилка: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+              loc.t(
+                'mods.errors.generic',
+                params: {'message': e.toString()},
+              ),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -692,7 +732,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Edit Mod'),
+        title: Text(loc.t('mods.dialog.edit_title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -702,7 +742,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 16),
-            const Text('Character Tag:', style: TextStyle(fontSize: 13)),
+            Text(
+              loc.t('mods.dialog.character_tag'),
+              style: const TextStyle(fontSize: 13),
+            ),
             const SizedBox(height: 8),
             ValueListenableBuilder<String>(
               valueListenable: selectedChar,
@@ -759,7 +802,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(loc.t('mods.dialog.cancel')),
           ),
           FilledButton(
             onPressed: () async {
@@ -768,14 +811,14 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
               Navigator.pop(context);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Tag оновлено'),
-                    duration: Duration(seconds: 1),
+                  SnackBar(
+                    content: Text(loc.t('mods.snackbar.tag_saved')),
+                    duration: const Duration(seconds: 1),
                   ),
                 );
               }
             },
-            child: const Text('Save'),
+            child: Text(loc.t('mods.dialog.save')),
           ),
         ],
       ),
@@ -793,11 +836,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       ),
       items: [
         PopupMenuItem(
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.edit, size: 18),
-              SizedBox(width: 8),
-              Text('Edit'),
+              const Icon(Icons.edit, size: 18),
+              const SizedBox(width: 8),
+              Text(loc.t('mods.context_menu.edit')),
             ],
           ),
           onTap: () {
@@ -805,11 +848,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           },
         ),
         PopupMenuItem(
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.image, size: 18),
-              SizedBox(width: 8),
-              Text('Додати фото'),
+              const Icon(Icons.image, size: 18),
+              const SizedBox(width: 8),
+              Text(loc.t('mods.context_menu.add_image')),
             ],
           ),
           onTap: () {
@@ -824,7 +867,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                 size: 18,
               ),
               const SizedBox(width: 8),
-              Text(mod.isFavorite ? 'Видалити з улюблених' : 'В улюблені'),
+              Text(
+                mod.isFavorite
+                    ? loc.t('mods.context_menu.favorite_remove')
+                    : loc.t('mods.context_menu.favorite_add'),
+              ),
             ],
           ),
           onTap: () {
@@ -836,7 +883,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
             children: [
               Icon(mod.isActive ? Icons.toggle_off : Icons.toggle_on, size: 18),
               const SizedBox(width: 8),
-              Text(mod.isActive ? 'Деактивувати' : 'Активувати'),
+              Text(
+                mod.isActive
+                    ? loc.t('mods.context_menu.deactivate')
+                    : loc.t('mods.context_menu.activate'),
+              ),
             ],
           ),
           onTap: () {
@@ -894,7 +945,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                 return Opacity(
                   opacity: _loadingAnimation.value,
                   child: Text(
-                    'Завантаження модів...',
+                    loc.t('mods.loading.title'),
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],
@@ -917,7 +968,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
             Icon(Icons.error_outline, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'Помилка завантаження',
+              loc.t('mods.errors.load'),
               style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
@@ -929,7 +980,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
             TextButton.icon(
               onPressed: () => loadMods(),
               icon: const Icon(Icons.refresh),
-              label: const Text('Спробувати знову'),
+              label: Text(loc.t('mods.errors.retry')),
             ),
           ],
         ),
@@ -975,7 +1026,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                   child: Row(
                     children: [
                       Text(
-                        'Персонажі',
+                        loc.t('mods.headers.characters'),
                         style: TextStyle(
                           fontSize: AppConstants.headerTextSize,
                           fontWeight: FontWeight.w600,
@@ -1057,7 +1108,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
               child: Row(
                 children: [
                   Text(
-                    'Активні моди',
+                    loc.t('mods.headers.active_mods'),
                     style: TextStyle(
                       fontSize: AppConstants.titleTextSize,
                       fontWeight: FontWeight.w500,
@@ -1177,7 +1228,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    'Завантажте моди',
+                                    loc.t('mods.empty.title'),
                                     style: TextStyle(
                                       fontSize: 16,
                                       color: Colors.grey[600],
@@ -1343,7 +1394,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  _isDragging ? 'Відпустіть сюди' : 'Додати моди',
+                  _isDragging
+                      ? loc.t('mods.empty.prompt')
+                      : loc.t('mods.empty.cta'),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -1359,8 +1412,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
                     _isDragging
-                        ? 'Додати папки'
-                        : 'Перетягніть папки сюди\nабо натисніть',
+                        ? loc.t('mods.empty.add_folders')
+                        : loc.t('mods.empty.drag'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
@@ -1461,8 +1514,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ),
       ),
       child: Tooltip(
-        message:
-            'Натисніть та утримуйте для перетягування\nКлікніть для активації',
+        message: loc.t('mods.tooltips.card'),
         child: GestureDetector(
           onTap: () => toggleMod(mod),
           onSecondaryTapDown: (details) {
@@ -1486,7 +1538,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       final character = characters.firstWhere((char) => char.id == characterId);
       return character.name;
     } catch (e) {
-      return 'Unknown';
+      return loc.t('common.unknown');
     }
   }
 
@@ -1568,8 +1620,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       if (folderPaths.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Будь ласка, перетягніть папки з модами'),
+            SnackBar(
+              content: Text(loc.t('mods.snackbar.import_no_folders')),
               backgroundColor: Colors.orange,
             ),
           );
@@ -1601,7 +1653,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Імпортування ${folderPaths.length} ${folderPaths.length == 1 ? "моду" : "модів"}...',
+                    loc.t(
+                      'mods.dialog.import_progress',
+                      params: {
+                        'count': folderPaths.length.toString(),
+                        'plural': folderPaths.length == 1
+                            ? loc.t('mods.import.single')
+                            : loc.t('mods.import.plural'),
+                      },
+                    ),
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -1609,7 +1669,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Це може зайняти деякий час',
+                    loc.t('mods.dialog.import_progress_hint'),
                     style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
@@ -1636,16 +1696,20 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       if (importedMods.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('Моди вже існують або сталася помилка')),
+                  const Icon(Icons.info_outline, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      loc.t('mods.snackbar.import_duplicates'),
+                    ),
+                  ),
                 ],
               ),
               backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -1672,11 +1736,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
-                SizedBox(width: 8),
-                Text('Успішно імпортовано!'),
+                const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
+                const SizedBox(width: 8),
+                Text(loc.t('mods.snackbar.import_success_title')),
               ],
             ),
             content: Column(
@@ -1684,7 +1748,12 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Додано ${importedMods.length} ${importedMods.length == 1 ? "мод" : "модів"}',
+                  loc.t(
+                    importedMods.length == 1
+                        ? 'mods.import.success_single'
+                        : 'mods.import.success_plural',
+                    params: {'count': importedMods.length.toString()},
+                  ),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -1704,17 +1773,17 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.auto_awesome,
                               color: Color(0xFF0EA5E9),
                               size: 18,
                             ),
-                            SizedBox(width: 6),
+                            const SizedBox(width: 6),
                             Text(
-                              'Автоматично визначено теги:',
-                              style: TextStyle(
+                              loc.t('mods.dialog.import_auto_tags'),
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF0EA5E9),
@@ -1740,7 +1809,12 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
-                              'та ще ${autoTags.length - 5}...',
+                              loc.t(
+                                'mods.import.auto_tag_and_more',
+                                params: {
+                                  'count': (autoTags.length - 5).toString(),
+                                },
+                              ),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey[600],
@@ -1753,7 +1827,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                 ],
                 const SizedBox(height: 12),
                 Text(
-                  'Моди готові до використання!',
+                  loc.t('mods.dialog.import_ready'),
                   style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                 ),
               ],
@@ -1761,7 +1835,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
             actions: [
               FilledButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Чудово!'),
+                child: Text(loc.t('mods.dialog.great')),
               ),
             ],
           ),
@@ -1869,10 +1943,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           clipboardData.text!.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Буфер обміну порожній'),
-              backgroundColor: Colors.orange,
-            ),
+          SnackBar(
+            content: Text(loc.t('clipboard.empty')),
+            backgroundColor: Colors.orange,
+          ),
           );
         }
         return;
@@ -1888,8 +1962,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       if (paths.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Не знайдено шляхів до папок'),
+            SnackBar(
+              content: Text(loc.t('clipboard.no_paths')),
               backgroundColor: Colors.orange,
             ),
           );
@@ -1915,8 +1989,8 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       if (validFolders.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Не знайдено валідних папок з модами'),
+            SnackBar(
+              content: Text(loc.t('clipboard.no_valid')),
               backgroundColor: Colors.orange,
             ),
           );
@@ -1930,7 +2004,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Помилка вставки: $e'),
+            content: Text(
+              loc.t('mods.snackbar.paste_error', params: {
+                'message': e.toString(),
+              }),
+            ),
             backgroundColor: Colors.red,
           ),
         );

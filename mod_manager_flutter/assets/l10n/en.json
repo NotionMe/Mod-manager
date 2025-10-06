@@ -45,15 +45,22 @@
       "refresh": "Refresh mod list",
       "card": "Hold to drag\nClick to toggle"
     },
+    "actions": {
+      "refresh": "Refresh"
+    },
     "headers": {
       "characters": "Characters",
       "active_mods": "Active mods"
+    },
+    "characters": {
+      "empty": "No characters found"
     },
     "empty": {
       "title": "Import mods",
       "cta": "Add mods",
       "drag": "Drop folders here\nor click",
-      "prompt": "Drop here"
+      "prompt": "Drop here",
+      "add_folders": "Add folders"
     },
     "dialog": {
       "edit_title": "Edit Mod",
@@ -70,7 +77,9 @@
       "import_ready": "Mods are ready to use!",
       "great": "Great!",
       "favorites": "Favorites",
-      "move_to_character": "Assign to {character}"
+      "move_to_character": "Assign to {character}",
+      "saving_tag": "Saving tag...",
+      "mod_assigned": "Mod \"{mod}\" assigned to {character}"
     },
     "context_menu": {
       "edit": "Edit",
@@ -83,7 +92,11 @@
     "import": {
       "tag_hint": "Automatically tags {count} characters",
       "auto_tag_summary": "Automatically assigned {count} {plural}",
-      "auto_tag_and_more": "and {count} more..."
+      "auto_tag_and_more": "and {count} more...",
+      "single": "mod",
+      "plural": "mods",
+      "success_single": "Added {count} mod",
+      "success_plural": "Added {count} mods"
     }
   },
   "clipboard": {
@@ -95,15 +108,39 @@
     "title": "Settings",
     "loading": "Loading settings...",
     "save_success": "Configuration saved",
+    "errors": {
+      "generic": "Error: {message}"
+    },
+    "sections": {
+      "paths": "Mod directories",
+      "language": "Language",
+      "auto_tag": "Automatic tagging",
+      "auto_f10": "Automatic mod reload",
+      "appearance": "Appearance"
+    },
     "paths": {
       "mods": "Mods folder",
+      "mods_hint": "Path where original mods are stored",
       "save_mods": "Links folder",
+      "save_mods_hint": "Path where symlinks will be created",
       "browse": "Browse"
     },
     "language": {
       "title": "Language",
+      "label": "App language",
       "english": "English",
-      "ukrainian": "Ukrainian"
+      "ukrainian": "Ukrainian",
+      "changed": "Language changed to {language}",
+      "error": "Failed to change language: {message}"
+    },
+    "actions": {
+      "save_configuration": "Save configuration"
+    },
+    "info": {
+      "symlinks": "This app uses symbolic links to safely manage mods without copying files."
+    },
+    "appearance": {
+      "dark_mode": "Dark mode"
     },
     "auto_tag": {
       "title": "Automatic tagging",
@@ -118,7 +155,13 @@
       "no_mods": "No mods found for auto tagging",
       "success_title": "Tags detected!",
       "success_message": "Mods grouped by characters!",
-      "ok": "Great!"
+      "ok": "Great!",
+      "note": "This function analyzes all mods without tags and tries to determine characters automatically",
+      "summary": "Automatically assigned {count} {plural}",
+      "tag_single": "tag",
+      "tag_plural": "tags",
+      "list_title": "Detected tags:",
+      "error": "Auto-tagging error: {message}"
     },
     "auto_f10": {
       "title": "Automatic mod reload",
@@ -126,16 +169,46 @@
       "enabled": "Enabled - F10 is sent automatically when toggling mods",
       "disabled": "Disabled - press F10 manually",
       "install_dependencies": "Install dependencies",
-      "show_instructions": "Show instructions"
+      "show_instructions": "Show instructions",
+      "status_title": "Automatic F10",
+      "requirements": {
+        "launcher": "XXMI Launcher is installed and configured",
+        "config": "d3dx.ini includes: reload_fixes = no_modifiers VK_F10",
+        "tools": "Recommended: xdotool (X11) or ydotool (Wayland)"
+      },
+      "instructions": {
+        "step1_title": "1. Install XXMI Launcher:",
+        "step1_link": "github.com/SpectrumQT/XXMI-Installer",
+        "step2_title": "2. Ensure d3dx.ini contains the line:",
+        "step2_code": "reload_fixes = no_modifiers VK_F10",
+        "step3_title": "3. Install tools:",
+        "step3_platform": "Ubuntu/Debian:",
+        "step3_code": "sudo apt install xdotool ydotool wmctrl",
+        "step4_title": "4. Configure permissions for Wayland:",
+        "step4_code": "sudo usermod -a -G input $USER\nsudo systemctl enable --now ydotool.service\n\n# Then restart the system",
+        "warning_title": "Important for Wayland:",
+        "warning_body": "The game window must be visible (not minimized) for F10 to work!",
+        "workflow_title": "Recommended workflow:",
+        "workflow_step1": "1. Launch the game",
+        "workflow_step2": "2. Alt+Tab to the mod manager",
+        "workflow_step3": "3. Activate a mod",
+        "workflow_step4": "4. Alt+Tab back to the game",
+        "workflow_step5": "5. ✅ F10 will be sent automatically",
+        "details_file": "See WAYLAND_SETUP.md for detailed instructions"
+      }
     },
     "dialogs": {
       "dependencies_title": "F10 Setup",
       "dependencies_message": "Check the terminal for installation instructions",
-      "instructions_title": "F10 instructions"
+      "instructions_title": "F10 instructions",
+      "ok": "Got it"
     }
   },
   "language_names": {
     "en": "English",
     "uk": "Українська"
+  },
+  "common": {
+    "unknown": "Unknown"
   }
 }
