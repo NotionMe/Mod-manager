@@ -36,10 +36,16 @@
     "install_empty": "Archive doesn't contain any mod folders.",
     "install_7zip_missing": "7-Zip not found. Install 7-Zip or add it to PATH to extract RAR/7z files.",
     "install_extract_failed": "Failed to extract archive.",
-    "unsupported_title": "Marketplace is only available on Windows",
-    "unsupported_body": "Marketplace browsing currently requires the Windows desktop app. Open {url} in your browser to explore mods.",
+    "unsupported_title": "Marketplace isn't available on this platform yet",
+    "unsupported_body": "Open {url} in your browser to explore mods while we add support for this platform.",
     "copy_link": "Copy link",
-    "copy_success": "Marketplace link copied to clipboard."
+    "copy_success": "Marketplace link copied to clipboard.",
+    "linux_title": "GameBanana Marketplace",
+    "linux_body": "On Linux, the marketplace opens in a separate window. Click the button below to browse and download mods.",
+    "open_marketplace": "Open Marketplace",
+    "open_browser": "Open in Browser",
+    "webview_unavailable": "WebView is not available. Please install webkit2gtk-4.1.",
+    "error_opening": "Error opening marketplace"
   },
   "mods": {
     "favorites": "Favorites",

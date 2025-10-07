@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
@@ -29,10 +30,17 @@ class MarketplaceScreen extends ConsumerStatefulWidget {
 class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   static final WebUri _homeUri = WebUri('https://gamebanana.com/games/19567');
 
-  InAppWebViewController? _webViewController;
+  InAppWebViewController? _inAppWebViewController;
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   double _progress = 0;
+
+  bool get _isWindows => !kIsWeb && Platform.isWindows;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   void dispose() {
@@ -41,7 +49,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   AppLocalizations get loc => context.loc;
-  bool get _isWebViewSupported => !kIsWeb && Platform.isWindows;
+  bool get _isWebViewSupported => _isWindows;
 
   @override
   Widget build(BuildContext context) {
@@ -88,10 +96,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
             icon: Icons.arrow_back,
             tooltip: loc.t('marketplace.back'),
             enabled: isEnabled,
-            onPressed: () async {
-              if (await _webViewController?.canGoBack() ?? false) {
-                await _webViewController?.goBack();
-              }
+            onPressed: () {
+              _handleBackNavigation();
             },
           ),
           const SizedBox(width: 8),
@@ -99,10 +105,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
             icon: Icons.arrow_forward,
             tooltip: loc.t('marketplace.forward'),
             enabled: isEnabled,
-            onPressed: () async {
-              if (await _webViewController?.canGoForward() ?? false) {
-                await _webViewController?.goForward();
-              }
+            onPressed: () {
+              _handleForwardNavigation();
             },
           ),
           const SizedBox(width: 8),
@@ -110,14 +114,18 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
             icon: Icons.refresh,
             tooltip: loc.t('marketplace.reload'),
             enabled: isEnabled,
-            onPressed: () => _webViewController?.reload(),
+            onPressed: () {
+              _handleReload();
+            },
           ),
           const SizedBox(width: 8),
           _buildIconButton(
             icon: Icons.home,
             tooltip: loc.t('marketplace.home'),
             enabled: isEnabled,
-            onPressed: () => _loadUri(_homeUri),
+            onPressed: () {
+              _handleHomeNavigation();
+            },
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -245,6 +253,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Widget _buildWebView(bool isDarkMode) {
+    if (_isWindows) {
+      return _buildWindowsWebView(isDarkMode);
+    }
+    return _buildUnsupportedView(isDarkMode);
+  }
+
+  Widget _buildWindowsWebView(bool isDarkMode) {
     return InAppWebView(
       initialUrlRequest: URLRequest(url: _homeUri),
       initialSettings: InAppWebViewSettings(
@@ -261,9 +276,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         useOnDownloadStart: true,
         isFraudulentWebsiteWarningEnabled: true,
       ),
-      onWebViewCreated: (controller) => _webViewController = controller,
+      onWebViewCreated: (controller) => _inAppWebViewController = controller,
       shouldOverrideUrlLoading: (controller, action) async {
-        final uri = action.request.url;
         return NavigationActionPolicy.ALLOW;
       },
       onLoadStart: (controller, url) {
@@ -290,7 +304,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       },
       onDownloadStartRequest: (controller, request) async {
         final webUri = request.url;
-        if (webUri == null) return;
         final uri = Uri.parse(webUri.toString());
 
         final choice = await _showDownloadChoiceDialog(
@@ -310,7 +323,35 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Future<void> _loadUri(WebUri uri) async {
-    await _webViewController?.loadUrl(urlRequest: URLRequest(url: uri));
+    if (_isWindows) {
+      await _inAppWebViewController?.loadUrl(urlRequest: URLRequest(url: uri));
+    }
+  }
+
+  Future<void> _handleBackNavigation() async {
+    if (_isWindows) {
+      if (await _inAppWebViewController?.canGoBack() ?? false) {
+        await _inAppWebViewController?.goBack();
+      }
+    }
+  }
+
+  Future<void> _handleForwardNavigation() async {
+    if (_isWindows) {
+      if (await _inAppWebViewController?.canGoForward() ?? false) {
+        await _inAppWebViewController?.goForward();
+      }
+    }
+  }
+
+  Future<void> _handleReload() async {
+    if (_isWindows) {
+      await _inAppWebViewController?.reload();
+    }
+  }
+
+  Future<void> _handleHomeNavigation() async {
+    await _loadUri(_homeUri);
   }
 
   void _performSearch(String query) {
@@ -708,35 +749,59 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Future<String?> _locate7Zip() async {
-    if (!Platform.isWindows) {
+    if (Platform.isWindows) {
+      final whereResult = await Process.run('where', ['7z']);
+      if (whereResult.exitCode == 0) {
+        final lines = whereResult.stdout
+            .toString()
+            .split(RegExp(r'[\r\n]+'))
+            .where((line) => line.trim().isNotEmpty);
+        if (lines.isNotEmpty) {
+          return lines.first.trim();
+        }
+      }
+
+      final candidates = [
+        path.join(
+          Platform.environment['ProgramFiles'] ?? '',
+          '7-Zip',
+          '7z.exe',
+        ),
+        path.join(
+          Platform.environment['ProgramFiles(x86)'] ?? '',
+          '7-Zip',
+          '7z.exe',
+        ),
+      ];
+
+      for (final candidate in candidates) {
+        if (candidate.trim().isEmpty) continue;
+        final file = File(candidate);
+        if (await file.exists()) {
+          return file.path;
+        }
+      }
       return null;
     }
 
-    final whereResult = await Process.run('where', ['7z']);
-    if (whereResult.exitCode == 0) {
-      final lines = whereResult.stdout
-          .toString()
-          .split(RegExp(r'[\r\n]+'))
-          .where((line) => line.trim().isNotEmpty);
-      if (lines.isNotEmpty) {
-        return lines.first.trim();
-      }
-    }
-
-    final candidates = [
-      path.join(Platform.environment['ProgramFiles'] ?? '', '7-Zip', '7z.exe'),
-      path.join(
-        Platform.environment['ProgramFiles(x86)'] ?? '',
-        '7-Zip',
-        '7z.exe',
-      ),
-    ];
-
-    for (final candidate in candidates) {
-      if (candidate.trim().isEmpty) continue;
-      final file = File(candidate);
-      if (await file.exists()) {
-        return file.path;
+    if (Platform.isLinux || Platform.isMacOS) {
+      final commands = ['7z', '7za', '7zr'];
+      for (final command in commands) {
+        try {
+          final whichResult = await Process.run('which', [command]);
+          if (whichResult.exitCode == 0) {
+            final pathResult = whichResult.stdout
+                .toString()
+                .split(RegExp(r'[\r\n]+'))
+                .firstWhere((line) => line.trim().isNotEmpty, orElse: () => '')
+                .trim();
+            if (pathResult.isNotEmpty) {
+              return pathResult;
+            }
+          }
+        } catch (_) {
+          // Ignore failures and continue searching.
+        }
       }
     }
 
