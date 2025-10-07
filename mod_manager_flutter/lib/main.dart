@@ -1,24 +1,39 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_inappwebview_windows/flutter_inappwebview_windows.dart';
+import 'package:window_manager/window_manager.dart';
 import 'dart:io';
 import 'core/constants.dart';
 import 'screens/mods_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/welcome_screen.dart';
+import 'screens/marketplace_screen.dart';
 import 'utils/state_providers.dart';
 import 'services/api_service.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb && Platform.isWindows) {
+    InAppWebViewPlatform.instance = WindowsInAppWebViewPlatform();
+  }
+
   await windowManager.ensureInitialized();
 
   WindowOptions windowOptions = WindowOptions(
-    size: Size(AppConstants.defaultWindowWidth.toDouble(), AppConstants.defaultWindowHeight.toDouble()),
-    minimumSize: Size(AppConstants.minWindowWidth.toDouble(), AppConstants.minWindowHeight.toDouble()),
+    size: Size(
+      AppConstants.defaultWindowWidth.toDouble(),
+      AppConstants.defaultWindowHeight.toDouble(),
+    ),
+    minimumSize: Size(
+      AppConstants.minWindowWidth.toDouble(),
+      AppConstants.minWindowHeight.toDouble(),
+    ),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
@@ -88,14 +103,10 @@ class _MyAppState extends ConsumerState<MyApp> {
       ],
       onGenerateTitle: (context) => context.loc.t('app.title'),
       home: _isLoading
-          ? const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            )
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : (_isFirstRun
-              ? WelcomeScreen(onComplete: _onWelcomeComplete)
-              : const MainScreen()),
+                ? WelcomeScreen(onComplete: _onWelcomeComplete)
+                : const MainScreen()),
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -103,30 +114,31 @@ class _MyAppState extends ConsumerState<MyApp> {
           brightness: isDarkMode ? Brightness.dark : Brightness.light,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: isDarkMode ? const Color(0xFF0F0F0F) : const Color(0xFFF5F5F5),
+        scaffoldBackgroundColor: isDarkMode
+            ? const Color(0xFF0F0F0F)
+            : const Color(0xFFF5F5F5),
         cardColor: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
         // Покращена кольорова схема
-        primarySwatch: MaterialColor(
-          0xFF0EA5E9,
-          <int, Color>{
-            50: const Color(0xFFE0F7FA),
-            100: const Color(0xFFB3ECF2),
-            200: const Color(0xFF80E0EA),
-            300: const Color(0xFF4DD4E2),
-            400: const Color(0xFF26C9DA),
-            500: const Color(0xFF0EA5E9),
-            600: const Color(0xFF0C94D1),
-            700: const Color(0xFF0A82B9),
-            800: const Color(0xFF0870A1),
-            900: const Color(0xFF064E89),
-          },
-        ),
+        primarySwatch: MaterialColor(0xFF0EA5E9, <int, Color>{
+          50: const Color(0xFFE0F7FA),
+          100: const Color(0xFFB3ECF2),
+          200: const Color(0xFF80E0EA),
+          300: const Color(0xFF4DD4E2),
+          400: const Color(0xFF26C9DA),
+          500: const Color(0xFF0EA5E9),
+          600: const Color(0xFF0C94D1),
+          700: const Color(0xFF0A82B9),
+          800: const Color(0xFF0870A1),
+          900: const Color(0xFF064E89),
+        }),
         // Покращені кольори для темної теми
         brightness: isDarkMode ? Brightness.dark : Brightness.light,
         // Покращені кольори для карток
         cardTheme: CardThemeData(
           elevation: isDarkMode ? 8 : 4,
-          shadowColor: isDarkMode ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.1),
+          shadowColor: isDarkMode
+              ? Colors.black.withOpacity(0.3)
+              : Colors.black.withOpacity(0.1),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -146,13 +158,17 @@ class _MyAppState extends ConsumerState<MyApp> {
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: BorderSide(
-              color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+              color: isDarkMode
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.1),
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: BorderSide(
-              color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+              color: isDarkMode
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.1),
             ),
           ),
           focusedBorder: OutlineInputBorder(
@@ -172,7 +188,8 @@ class MainScreen extends ConsumerStatefulWidget {
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStateMixin, WindowListener {
+class _MainScreenState extends ConsumerState<MainScreen>
+    with TickerProviderStateMixin, WindowListener {
   late AnimationController _logoAnimationController;
   late AnimationController _sidebarAnimationController;
   late Animation<double> _logoScaleAnimation;
@@ -183,7 +200,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
   void initState() {
     super.initState();
     windowManager.addListener(this);
-    
+
     _logoAnimationController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
@@ -192,31 +209,28 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
-    _logoScaleAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _logoAnimationController,
-      curve: Curves.elasticOut,
-    ));
-    
-    _logoRotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: 0.1,
-    ).animate(CurvedAnimation(
-      parent: _logoAnimationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _sidebarSlideAnimation = Tween<double>(
-      begin: -1.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _sidebarAnimationController,
-      curve: Curves.easeOutCubic,
-    ));
-    
+
+    _logoScaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _logoAnimationController,
+        curve: Curves.elasticOut,
+      ),
+    );
+
+    _logoRotationAnimation = Tween<double>(begin: 0.0, end: 0.1).animate(
+      CurvedAnimation(
+        parent: _logoAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _sidebarSlideAnimation = Tween<double>(begin: -1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _sidebarAnimationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
     _logoAnimationController.forward();
     _sidebarAnimationController.forward();
   }
@@ -261,205 +275,257 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
               children: [
                 // Sidebar
                 SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(-1, 0),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(
-                    parent: _sidebarAnimationController,
-                    curve: Curves.easeOutCubic,
-                  )),
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(-1, 0),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: _sidebarAnimationController,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
                     width: isSidebarCollapsed ? 80 : 220,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: isDarkMode 
-                    ? [
-                        const Color(0xFF1A1A1A),
-                        const Color(0xFF0F0F0F),
-                      ]
-                    : [
-                        Colors.white,
-                        const Color(0xFFFAFAFA),
-                      ],
-              ),
-              border: Border(
-                right: BorderSide(
-                  color: isDarkMode ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
-                  width: 1,
-                ),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: isDarkMode ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.05),
-                  blurRadius: 15,
-                  offset: const Offset(2, 0),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                const SizedBox(height: 24),
-                // Toggle button
-                Align(
-                  alignment: isSidebarCollapsed ? Alignment.center : Alignment.centerRight,
-                  child: Padding(
-                    padding: EdgeInsets.only(right: isSidebarCollapsed ? 0 : 16),
-                    child: IconButton(
-                      icon: Icon(
-                        isSidebarCollapsed ? Icons.menu : Icons.menu_open,
-                        color: Colors.grey[600],
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: isDarkMode
+                            ? [const Color(0xFF1A1A1A), const Color(0xFF0F0F0F)]
+                            : [Colors.white, const Color(0xFFFAFAFA)],
                       ),
-                      onPressed: () {
-                        ref.read(sidebarCollapsedProvider.notifier).state = !isSidebarCollapsed;
-                      },
-                      tooltip: isSidebarCollapsed ? loc.t('navigation.expand') : loc.t('navigation.collapse'),
+                      border: Border(
+                        right: BorderSide(
+                          color: isDarkMode
+                              ? Colors.white.withOpacity(0.05)
+                              : Colors.black.withOpacity(0.03),
+                          width: 1,
+                        ),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isDarkMode
+                              ? Colors.black.withOpacity(0.3)
+                              : Colors.black.withOpacity(0.05),
+                          blurRadius: 15,
+                          offset: const Offset(2, 0),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Logo/Title with gradient
-                if (!isSidebarCollapsed) ...[
-                  AnimatedBuilder(
-                    animation: _logoScaleAnimation,
-                    builder: (context, child) {
-                      return Transform.scale(
-                        scale: _logoScaleAnimation.value,
-                        child: Transform.rotate(
-                          angle: _logoRotationAnimation.value,
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 24),
+                        // Toggle button
+                        Align(
+                          alignment: isSidebarCollapsed
+                              ? Alignment.center
+                              : Alignment.centerRight,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: isSidebarCollapsed ? 0 : 16,
+                            ),
+                            child: IconButton(
+                              icon: Icon(
+                                isSidebarCollapsed
+                                    ? Icons.menu
+                                    : Icons.menu_open,
+                                color: Colors.grey[600],
                               ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF0EA5E9).withOpacity(0.3),
-                                  blurRadius: 15,
-                                  spreadRadius: 2,
+                              onPressed: () {
+                                ref
+                                        .read(sidebarCollapsedProvider.notifier)
+                                        .state =
+                                    !isSidebarCollapsed;
+                              },
+                              tooltip: isSidebarCollapsed
+                                  ? loc.t('navigation.expand')
+                                  : loc.t('navigation.collapse'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Logo/Title with gradient
+                        if (!isSidebarCollapsed) ...[
+                          AnimatedBuilder(
+                            animation: _logoScaleAnimation,
+                            builder: (context, child) {
+                              return Transform.scale(
+                                scale: _logoScaleAnimation.value,
+                                child: Transform.rotate(
+                                  angle: _logoRotationAnimation.value,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF0EA5E9),
+                                          Color(0xFF06B6D4),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(
+                                            0xFF0EA5E9,
+                                          ).withOpacity(0.3),
+                                          blurRadius: 15,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.games,
+                                      color: Colors.white,
+                                      size: 32,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
+                            ).createShader(bounds),
+                            child: const Text(
+                              'ZZZ',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -1,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            loc.t('app.brand_subtitle'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                        ] else ...[
+                          const SizedBox(height: 20),
+                        ],
+                        // Navigation
+                        AnimationLimiter(
+                          child: Column(
+                            children: AnimationConfiguration.toStaggeredList(
+                              duration: const Duration(milliseconds: 375),
+                              childAnimationBuilder: (widget) => SlideAnimation(
+                                horizontalOffset: 50.0,
+                                child: FadeInAnimation(child: widget),
+                              ),
+                              children: [
+                                _buildNavItem(
+                                  context: context,
+                                  icon: Icons.dashboard_rounded,
+                                  label: loc.t('navigation.mods'),
+                                  isActive: currentTab == 0,
+                                  onTap: () =>
+                                      ref
+                                              .read(tabIndexProvider.notifier)
+                                              .state =
+                                          0,
+                                ),
+                                const SizedBox(height: 8),
+                                _buildNavItem(
+                                  context: context,
+                                  icon: Icons.store_mall_directory_rounded,
+                                  label: loc.t('navigation.marketplace'),
+                                  isActive: currentTab == 1,
+                                  onTap: () =>
+                                      ref
+                                              .read(tabIndexProvider.notifier)
+                                              .state =
+                                          1,
+                                ),
+                                const SizedBox(height: 8),
+                                _buildNavItem(
+                                  context: context,
+                                  icon: Icons.settings_rounded,
+                                  label: loc.t('navigation.settings'),
+                                  isActive: currentTab == 2,
+                                  onTap: () =>
+                                      ref
+                                              .read(tabIndexProvider.notifier)
+                                              .state =
+                                          2,
                                 ),
                               ],
                             ),
-                            child: const Icon(Icons.games, color: Colors.white, size: 32),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
-                    ).createShader(bounds),
-                    child: const Text(
-                      'ZZZ',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -1,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    loc.t('app.brand_subtitle'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                ] else ...[
-                  const SizedBox(height: 20),
-                ],
-                // Navigation
-                AnimationLimiter(
-                  child: Column(
-                    children: AnimationConfiguration.toStaggeredList(
-                      duration: const Duration(milliseconds: 375),
-                      childAnimationBuilder: (widget) => SlideAnimation(
-                        horizontalOffset: 50.0,
-                        child: FadeInAnimation(child: widget),
-                      ),
-                      children: [
-                        _buildNavItem(
-                          context: context,
-                          icon: Icons.dashboard_rounded,
-                          label: loc.t('navigation.mods'),
-                          isActive: currentTab == 0,
-                          onTap: () => ref.read(tabIndexProvider.notifier).state = 0,
-                        ),
-                        const SizedBox(height: 8),
-                        _buildNavItem(
-                          context: context,
-                          icon: Icons.settings_rounded,
-                          label: loc.t('navigation.settings'),
-                          isActive: currentTab == 1,
-                          onTap: () => ref.read(tabIndexProvider.notifier).state = 1,
-                        ),
+                        const Spacer(),
+                        // Footer with version badge
+                        if (!isSidebarCollapsed)
+                          Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDarkMode
+                                    ? Colors.white.withOpacity(0.05)
+                                    : Colors.black.withOpacity(0.03),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isDarkMode
+                                      ? Colors.white.withOpacity(0.1)
+                                      : Colors.black.withOpacity(0.05),
+                                ),
+                              ),
+                              child: Text(
+                                'v1.0.0',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[500],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
-                  ),
-                ),
-                const Spacer(),
-                // Footer with version badge
-                if (!isSidebarCollapsed)
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isDarkMode 
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.black.withOpacity(0.03),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isDarkMode 
-                              ? Colors.white.withOpacity(0.1)
-                              : Colors.black.withOpacity(0.05),
-                        ),
-                      ),
-                      child: Text(
-                        'v1.0.0',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[500],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
                   ),
                 ),
                 // Content
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
-                    transitionBuilder: (Widget child, Animation<double> animation) {
-                      return SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(1.0, 0.0),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeInOut,
-                        )),
-                        child: child,
-                      );
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) {
+                          return SlideTransition(
+                            position:
+                                Tween<Offset>(
+                                  begin: const Offset(1.0, 0.0),
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeInOut,
+                                  ),
+                                ),
+                            child: child,
+                          );
+                        },
+                    child: switch (currentTab) {
+                      0 => const ModsScreen(key: ValueKey('mods')),
+                      1 => const MarketplaceScreen(
+                        key: ValueKey('marketplace'),
+                      ),
+                      _ => const SettingsScreen(key: ValueKey('settings')),
                     },
-                    child: currentTab == 0 
-                        ? const ModsScreen(key: ValueKey('mods')) 
-                        : const SettingsScreen(key: ValueKey('settings')),
                   ),
                 ),
               ],
@@ -478,7 +544,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: isDarkMode 
+            colors: isDarkMode
                 ? [
                     const Color(0xFF1A1A1A).withOpacity(0.95),
                     const Color(0xFF0F0F0F).withOpacity(0.95),
@@ -490,15 +556,15 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
           ),
           border: Border(
             bottom: BorderSide(
-              color: isDarkMode 
-                  ? Colors.white.withOpacity(0.05) 
+              color: isDarkMode
+                  ? Colors.white.withOpacity(0.05)
                   : Colors.black.withOpacity(0.03),
               width: 1,
             ),
           ),
           boxShadow: [
             BoxShadow(
-              color: isDarkMode 
+              color: isDarkMode
                   ? Colors.black.withOpacity(0.3)
                   : Colors.black.withOpacity(0.05),
               blurRadius: 10,
@@ -594,11 +660,15 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
           onTap: onPressed,
           hoverColor: isClose
               ? Colors.red.withOpacity(0.8)
-              : (isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
+              : (isDarkMode
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.black.withOpacity(0.05)),
           child: Icon(
             icon,
             size: 16,
-            color: isDarkMode ? Colors.white.withOpacity(0.7) : Colors.black.withOpacity(0.7),
+            color: isDarkMode
+                ? Colors.white.withOpacity(0.7)
+                : Colors.black.withOpacity(0.7),
           ),
         ),
       ),
@@ -613,7 +683,7 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
     required VoidCallback onTap,
   }) {
     final isSidebarCollapsed = ref.watch(sidebarCollapsedProvider);
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Tooltip(
@@ -633,14 +703,14 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                   vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  gradient: isActive 
+                  gradient: isActive
                       ? const LinearGradient(
                           colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
                         )
                       : null,
                   color: isActive ? null : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: isActive 
+                  boxShadow: isActive
                       ? [
                           BoxShadow(
                             color: const Color(0xFF0EA5E9).withOpacity(0.4),
@@ -652,7 +722,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                       : null,
                 ),
                 child: Row(
-                  mainAxisAlignment: isSidebarCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+                  mainAxisAlignment: isSidebarCollapsed
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
                   children: [
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
@@ -672,7 +744,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with TickerProviderStat
                         duration: const Duration(milliseconds: 300),
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: isActive
+                              ? FontWeight.w600
+                              : FontWeight.w500,
                           color: isActive ? Colors.white : Colors.grey[600],
                           letterSpacing: 0.3,
                         ),

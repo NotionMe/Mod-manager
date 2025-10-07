@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,7 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:cross_file/cross_file.dart';
 import '../core/constants.dart';
 import '../models/character_info.dart';
+import '../models/keybind_info.dart';
 import '../services/api_service.dart';
 import '../utils/state_providers.dart';
 import '../utils/zzz_characters.dart';
@@ -19,6 +21,7 @@ import '../l10n/app_localizations.dart';
 import 'components/mode_toggle_widget.dart';
 import 'components/character_cards_list_widget.dart';
 import 'components/mod_card_widget.dart';
+import 'components/keybinds_widget.dart';
 
 class ModsScreen extends ConsumerStatefulWidget {
   const ModsScreen({super.key});
@@ -57,6 +60,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
   // Focus node для обробки клавіатури
   final FocusNode _focusNode = FocusNode();
+  late final ScrollController _modsScrollController = ScrollController();
 
   @override
   void initState() {
@@ -93,6 +97,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     _rebuildDebounce?.cancel();
     _characterSelectionDebounce?.cancel();
     _focusNode.dispose();
+    _modsScrollController.dispose();
     super.dispose();
   }
 
@@ -189,7 +194,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       });
 
       // Створюємо список персонажів, додаючи "ALL" на початок
-      final characters = <CharacterInfo>[];
+      var characters = <CharacterInfo>[];
 
       final favoritesList = allMods.where((mod) => mod.isFavorite).toList();
       if (favoritesList.isNotEmpty) {
@@ -230,6 +235,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
             .toList(),
       );
 
+      // Збагачуємо персонажів keybinds з INI файлів
+      try {
+        final modManagerService = await ApiService.getModManagerService();
+        characters = await modManagerService.enrichCharactersWithKeybinds(characters);
+      } catch (e) {
+        print('Failed to load keybinds: $e');
+        // Продовжуємо без keybinds у разі помилки
+      }
+
       // Only update state if it actually changed to prevent unnecessary rebuilds
       final previousCharacters = ref.read(charactersProvider);
       final selectedIndex = ref.read(selectedCharacterIndexProvider);
@@ -249,8 +263,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         final newIndex = characters.indexWhere(
           (char) => char.id == previousSelectedId,
         );
-        ref.read(selectedCharacterIndexProvider.notifier).state =
-            newIndex != -1 ? newIndex : 0;
+        ref.read(selectedCharacterIndexProvider.notifier).state = newIndex != -1
+            ? newIndex
+            : 0;
       } else if (characters.isNotEmpty) {
         ref.read(selectedCharacterIndexProvider.notifier).state = 0;
       }
@@ -336,10 +351,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              loc.t(
-                'mods.errors.generic',
-                params: {'message': e.toString()},
-              ),
+              loc.t('mods.errors.generic', params: {'message': e.toString()}),
             ),
             backgroundColor: Colors.red,
           ),
@@ -391,10 +403,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              loc.t(
-                'mods.errors.generic',
-                params: {'message': e.toString()},
-              ),
+              loc.t('mods.errors.generic', params: {'message': e.toString()}),
             ),
             backgroundColor: Colors.red,
           ),
@@ -451,10 +460,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              loc.t(
-                'mods.errors.generic',
-                params: {'message': e.toString()},
-              ),
+              loc.t('mods.errors.generic', params: {'message': e.toString()}),
             ),
             backgroundColor: Colors.red,
           ),
@@ -714,10 +720,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              loc.t(
-                'mods.errors.generic',
-                params: {'message': e.toString()},
-              ),
+              loc.t('mods.errors.generic', params: {'message': e.toString()}),
             ),
             backgroundColor: Colors.red,
           ),
@@ -825,6 +828,312 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     );
   }
 
+  void _showEditKeybindDialog(ModInfo mod, KeybindInfo keybind) {
+    final keyController = TextEditingController(text: keybind.keyValue ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.edit_outlined, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Edit Keybind: ${keybind.displayName}',
+                style: const TextStyle(fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Press the key combination you want to use:',
+              style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: keyController,
+              decoration: InputDecoration(
+                labelText: 'Key Combination',
+                hintText: 'e.g., VK_F1, CTRL VK_A',
+                prefixIcon: const Icon(Icons.keyboard, color: Color(0xFFFBBF24)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF334155)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF334155)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFFBBF24), width: 2),
+                ),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B).withOpacity(0.5),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Common keys:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'VK_F1 to VK_F12, VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT\nCTRL, ALT, SHIFT, no_alt, no_shift, no_CTRL',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final newKey = keyController.text.trim();
+              if (newKey.isNotEmpty) {
+                await _saveKeybindChange(mod, keybind, newKey);
+                Navigator.pop(context);
+                // Перезавантажити моди щоб побачити зміни
+                await loadMods(showLoading: false);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveKeybindChange(ModInfo mod, KeybindInfo keybind, String newKey) async {
+    try {
+      final modManagerService = await ApiService.getModManagerService();
+      final modsPath = modManagerService.modsPath;
+      
+      if (modsPath == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Mods path not configured')),
+          );
+        }
+        return;
+      }
+
+      // Знаходимо INI файл моду
+      final modPath = path.join(modsPath, mod.id);
+      final modDir = Directory(modPath);
+      
+      if (!await modDir.exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Mod directory not found')),
+          );
+        }
+        return;
+      }
+
+      // Шукаємо INI файли
+      final iniFiles = await modDir
+          .list(recursive: true)
+          .where((entity) => entity is File && entity.path.toLowerCase().endsWith('.ini'))
+          .cast<File>()
+          .toList();
+
+      if (iniFiles.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No INI file found')),
+          );
+        }
+        return;
+      }
+
+      // Читаємо і оновлюємо INI файл
+      for (final iniFile in iniFiles) {
+        String content = await iniFile.readAsString();
+        final lines = content.split('\n');
+        bool inTargetSection = false;
+        bool updated = false;
+
+        for (int i = 0; i < lines.length; i++) {
+          final line = lines[i].trim();
+          
+          // Перевіряємо чи це наша секція
+          if (line.toLowerCase() == '[${keybind.section.toLowerCase()}]') {
+            inTargetSection = true;
+            continue;
+          }
+          
+          // Перевіряємо чи почалась нова секція
+          if (line.startsWith('[') && line.endsWith(']')) {
+            inTargetSection = false;
+          }
+          
+          // Якщо ми в потрібній секції і знайшли рядок з key
+          if (inTargetSection && line.toLowerCase().startsWith('key =')) {
+            lines[i] = 'key = $newKey';
+            updated = true;
+            break;
+          }
+        }
+
+        if (updated) {
+          await iniFile.writeAsString(lines.join('\n'));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Keybind updated: ${keybind.displayName} → $newKey'),
+                backgroundColor: const Color(0xFF10B981),
+              ),
+            );
+          }
+          break;
+        }
+      }
+    } catch (e) {
+      print('Error saving keybind: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving keybind: $e')),
+        );
+      }
+    }
+  }
+
+  void _showKeybindsDialog(ModInfo mod) {
+    if (mod.keybinds == null || mod.keybinds!.isEmpty) return;
+
+    // Фільтруємо тільки keybinds з key значенням
+    final validKeybinds = mod.keybinds!
+        .where((kb) => kb.keyValue != null && kb.keyValue!.isNotEmpty)
+        .toList();
+
+    if (validKeybinds.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.keyboard_outlined, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Keybinds: ${mod.name}',
+                style: const TextStyle(fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: validKeybinds.map((keybind) {
+                return InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showEditKeybindDialog(mod, keybind);
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF1E293B).withOpacity(0.8),
+                          const Color(0xFF0F172A).withOpacity(0.9),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF334155),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          keybind.displayName,
+                          style: const TextStyle(
+                            color: Color(0xFFE2E8F0),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: const Color(0xFFFBBF24).withOpacity(0.3),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Text(
+                            keybind.keyValue ?? '',
+                            style: const TextStyle(
+                              color: Color(0xFFFBBF24),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'monospace',
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(
+                          Icons.edit_outlined,
+                          size: 14,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Закрити'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showContextMenu(BuildContext context, ModInfo mod, Offset position) {
     showMenu(
       context: context,
@@ -859,13 +1168,24 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
             Future.delayed(Duration.zero, () => _pasteImageFromClipboard(mod));
           },
         ),
+        // Показати keybinds якщо є
+        if (mod.keybinds != null && mod.keybinds!.isNotEmpty)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                const Icon(Icons.keyboard_outlined, size: 18),
+                const SizedBox(width: 8),
+                Text('Keybinds (${mod.keybinds!.length})'),
+              ],
+            ),
+            onTap: () {
+              Future.delayed(Duration.zero, () => _showKeybindsDialog(mod));
+            },
+          ),
         PopupMenuItem(
           child: Row(
             children: [
-              Icon(
-                mod.isFavorite ? Icons.star : Icons.star_border,
-                size: 18,
-              ),
+              Icon(mod.isFavorite ? Icons.star : Icons.star_border, size: 18),
               const SizedBox(width: 8),
               Text(
                 mod.isFavorite
@@ -1141,6 +1461,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                 ],
               ),
             ),
+
           // Моди для вибраного персонажа
           Expanded(
             child: AnimatedSwitcher(
@@ -1244,25 +1565,58 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                               ),
                             )
                           : AnimationLimiter(
-                              child: GridView.builder(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: AppConstants.smallPadding,
-                                ),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 6,
-                                      childAspectRatio: 0.7,
-                                      crossAxisSpacing: 16,
-                                      mainAxisSpacing: 16,
+                              child: ScrollConfiguration(
+                                behavior: ScrollConfiguration.of(context)
+                                    .copyWith(
+                                      dragDevices: {
+                                        PointerDeviceKind.touch,
+                                        PointerDeviceKind.mouse,
+                                        PointerDeviceKind.trackpad,
+                                        PointerDeviceKind.stylus,
+                                      },
+                                      physics: const BouncingScrollPhysics(),
                                     ),
-                                itemCount:
-                                    currentSkins.length +
-                                    1, // +1 для кнопки "Додати"
-                                itemBuilder: (context, index) {
-                                  // Кнопка "Додати" в кінці
-                                  if (index == currentSkins.length) {
+                                child: GridView.builder(
+                                  controller: _modsScrollController,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: AppConstants.smallPadding,
+                                  ),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 6,
+                                        childAspectRatio: 0.7,
+                                        crossAxisSpacing: 16,
+                                        mainAxisSpacing: 16,
+                                      ),
+                                  itemCount:
+                                      currentSkins.length +
+                                      1, // +1 для кнопки "Додати"
+                                  itemBuilder: (context, index) {
+                                    // Кнопка "Додати" в кінці
+                                    if (index == currentSkins.length) {
+                                      return AnimationConfiguration.staggeredGrid(
+                                        key: const ValueKey('add_mod_card'),
+                                        position: index,
+                                        columnCount: 4,
+                                        duration: const Duration(
+                                          milliseconds: 500,
+                                        ),
+                                        child: ScaleAnimation(
+                                          scale: 0.5,
+                                          curve: Curves.easeOutBack,
+                                          child: FadeInAnimation(
+                                            curve: Curves.easeOut,
+                                            child: _buildAddModCard(),
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    final mod = currentSkins[index];
                                     return AnimationConfiguration.staggeredGrid(
-                                      key: const ValueKey('add_mod_card'),
+                                      key: ValueKey(
+                                        'mod_${mod.id}_${mod.isActive}',
+                                      ),
                                       position: index,
                                       columnCount: 4,
                                       duration: const Duration(
@@ -1273,30 +1627,12 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                                         curve: Curves.easeOutBack,
                                         child: FadeInAnimation(
                                           curve: Curves.easeOut,
-                                          child: _buildAddModCard(),
+                                          child: _buildModCard(mod),
                                         ),
                                       ),
                                     );
-                                  }
-
-                                  final mod = currentSkins[index];
-                                  return AnimationConfiguration.staggeredGrid(
-                                    key: ValueKey(
-                                      'mod_${mod.id}_${mod.isActive}',
-                                    ),
-                                    position: index,
-                                    columnCount: 4,
-                                    duration: const Duration(milliseconds: 500),
-                                    child: ScaleAnimation(
-                                      scale: 0.5,
-                                      curve: Curves.easeOutBack,
-                                      child: FadeInAnimation(
-                                        curve: Curves.easeOut,
-                                        child: _buildModCard(mod),
-                                      ),
-                                    ),
-                                  );
-                                },
+                                  },
+                                ),
                               ),
                             ),
                     );
@@ -1702,9 +2038,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                   const Icon(Icons.info_outline, color: Colors.white, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      loc.t('mods.snackbar.import_duplicates'),
-                    ),
+                    child: Text(loc.t('mods.snackbar.import_duplicates')),
                   ),
                 ],
               ),
@@ -1738,7 +2072,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           builder: (context) => AlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
+                const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF10B981),
+                  size: 28,
+                ),
                 const SizedBox(width: 8),
                 Text(loc.t('mods.snackbar.import_success_title')),
               ],
@@ -1943,10 +2281,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           clipboardData.text!.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(loc.t('clipboard.empty')),
-            backgroundColor: Colors.orange,
-          ),
+            SnackBar(
+              content: Text(loc.t('clipboard.empty')),
+              backgroundColor: Colors.orange,
+            ),
           );
         }
         return;
@@ -2005,9 +2343,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              loc.t('mods.snackbar.paste_error', params: {
-                'message': e.toString(),
-              }),
+              loc.t(
+                'mods.snackbar.paste_error',
+                params: {'message': e.toString()},
+              ),
             ),
             backgroundColor: Colors.red,
           ),
