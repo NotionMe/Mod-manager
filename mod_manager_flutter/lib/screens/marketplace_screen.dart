@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -537,31 +536,42 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     );
     final targetFile = File(path.join(tempDir.path, filename));
 
-    final request = http.Request('GET', uri);
-    final response = await request.send();
-
-    if (response.statusCode >= 400) {
-      throw Exception('HTTP ${response.statusCode}');
+    final httpClient = HttpClient();
+    
+    // Fix SSL certificate issues on Windows
+    if (Platform.isWindows) {
+      httpClient.badCertificateCallback = (cert, host, port) => true;
     }
 
-    final sink = targetFile.openWrite();
-    final total = response.contentLength;
-    int received = 0;
+    try {
+      final request = await httpClient.getUrl(uri);
+      final response = await request.close();
 
-    await response.stream.listen((chunk) {
-      received += chunk.length;
-      sink.add(chunk);
-      if (total != null && total > 0) {
-        progressNotifier.value = min(received / total, 1);
-      } else {
-        progressNotifier.value = null;
+      if (response.statusCode >= 400) {
+        throw Exception('HTTP ${response.statusCode}');
       }
-    }).asFuture();
 
-    await sink.close();
-    progressNotifier.value = 1;
+      final sink = targetFile.openWrite();
+      final total = response.contentLength;
+      int received = 0;
 
-    return targetFile;
+      await response.listen((chunk) {
+        received += chunk.length;
+        sink.add(chunk);
+        if (total > 0) {
+          progressNotifier.value = min(received / total, 1);
+        } else {
+          progressNotifier.value = null;
+        }
+      }).asFuture();
+
+      await sink.close();
+      progressNotifier.value = 1;
+
+      return targetFile;
+    } finally {
+      httpClient.close();
+    }
   }
 
   Future<String> _moveToDownloads(File file, String filename) async {
