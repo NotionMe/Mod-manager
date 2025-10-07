@@ -7,6 +7,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../../core/constants.dart';
 import '../../models/character_info.dart';
 import '../../l10n/app_localizations.dart';
+import 'keybinds_widget.dart';
 
 class CharacterCardsListWidget extends ConsumerStatefulWidget {
   final List<CharacterInfo> characters;
@@ -203,12 +204,15 @@ class _CharacterCardsListWidgetState
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  width: AppConstants.characterCardWidth,
-                  height: AppConstants.characterCardHeight,
-                  decoration: BoxDecoration(
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                      width: AppConstants.characterCardWidth,
+                      height: AppConstants.characterCardHeight,
+                      decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: isHovering
@@ -306,7 +310,20 @@ class _CharacterCardsListWidgetState
                               color: Colors.grey[600],
                             ),
                           ),
-                  ),
+                      ),
+                    ),
+                    // Бейдж з кількістю keybinds
+                    if (character.keybinds != null &&
+                        character.keybinds!.keybinds.isNotEmpty)
+                      Positioned(
+                        bottom: -4,
+                        right: -4,
+                        child: KeybindsBadge(
+                          keybinds: character.keybinds,
+                          scaleFactor: 0.8,
+                        ),
+                      ),
+                  ],
                 ),
                 AnimatedSize(
                   duration: const Duration(milliseconds: 250),

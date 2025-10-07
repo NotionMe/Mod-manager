@@ -2,20 +2,24 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/character_info.dart';
+import '../models/keybind_info.dart';
 import '../core/constants.dart';
 import '../utils/state_providers.dart';
 import 'config_service.dart';
 import 'platform_service.dart';
 import 'platform_service_factory.dart';
+import 'ini_parser_service.dart';
 
 /// Головний сервіс для керування модами через symbolic links
 class ModManagerService {
   final ConfigService _configService;
   final PlatformService _platformService;
   final ProviderContainer _container;
+  final IniParserService _iniParser;
 
   ModManagerService(this._configService, this._container)
-      : _platformService = PlatformServiceFactory.getInstance();
+      : _platformService = PlatformServiceFactory.getInstance(),
+        _iniParser = IniParserService();
 
   String? get modsPath => _configService.modsPath;
   String? get saveModsPath => _configService.saveModsPath;
@@ -389,6 +393,84 @@ class ModManagerService {
         ));
         await entity.copy(newFile.path);
       }
+    }
+  }
+
+  /// Зчитує keybinds для конкретного персонажа (моду)
+  /// characterId - назва папки персонажа в modsPath
+  Future<CharacterKeybinds?> getCharacterKeybinds(String characterId) async {
+    try {
+      if (modsPath == null) return null;
+
+      final characterPath = path.join(modsPath!, characterId);
+      final characterDir = Directory(characterPath);
+      
+      if (!await characterDir.exists()) return null;
+
+      return await _iniParser.parseCharacterDirectory(characterId, characterPath);
+    } catch (e) {
+      print('ModManagerService: Помилка зчитування keybinds для $characterId: $e');
+      return null;
+    }
+  }
+
+  /// Зчитує keybinds для всіх персонажів в modsPath
+  /// Повертає мапу characterId -> CharacterKeybinds
+  Future<Map<String, CharacterKeybinds>> getAllCharactersKeybinds() async {
+    try {
+      if (modsPath == null) return {};
+      
+      return await _iniParser.parseAllCharacters(modsPath!);
+    } catch (e) {
+      print('ModManagerService: Помилка зчитування keybinds для всіх персонажів: $e');
+      return {};
+    }
+  }
+
+  /// Завантажує keybinds для конкретного моду
+  /// modId - назва папки моду в modsPath
+  Future<List<KeybindInfo>?> getModKeybinds(String modId) async {
+    try {
+      if (modsPath == null) return null;
+      final modPath = path.join(modsPath!, modId);
+      final keybindsData = await _iniParser.parseCharacterDirectory(modId, modPath);
+      return keybindsData?.keybinds;
+    } catch (e) {
+      print('ModManagerService: Помилка завантаження keybinds для моду $modId: $e');
+      return null;
+    }
+  }
+
+  /// Оновлює інформацію про персонажів, додаючи keybinds до модів
+  /// Приймає список персонажів і додає keybinds до кожного моду
+  Future<List<CharacterInfo>> enrichCharactersWithKeybinds(
+    List<CharacterInfo> characters,
+  ) async {
+    try {
+      print('ModManagerService: Завантаження keybinds для модів...');
+      
+      final updatedCharacters = <CharacterInfo>[];
+      
+      for (final character in characters) {
+        final updatedMods = <ModInfo>[];
+        
+        for (final mod in character.skins) {
+          final keybinds = await getModKeybinds(mod.id);
+          if (keybinds != null && keybinds.isNotEmpty) {
+            print('ModManagerService: Знайдено ${keybinds.length} keybinds для моду ${mod.id}');
+            updatedMods.add(mod.copyWith(keybinds: keybinds));
+          } else {
+            updatedMods.add(mod);
+          }
+        }
+        
+        updatedCharacters.add(character.copyWith(skins: updatedMods));
+      }
+      
+      return updatedCharacters;
+    } catch (e) {
+      print('ModManagerService: Помилка збагачення модів keybinds: $e');
+      return characters;
     }
   }
 }

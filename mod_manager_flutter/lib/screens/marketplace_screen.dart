@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path/path.dart' as path;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
@@ -35,6 +34,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   double _progress = 0;
 
   bool get _isWindows => !kIsWeb && Platform.isWindows;
+  bool get _isLinux => !kIsWeb && Platform.isLinux;
+  bool get _isDesktop => _isWindows || _isLinux;
 
   @override
   void initState() {
@@ -48,7 +49,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   AppLocalizations get loc => context.loc;
-  bool get _isWebViewSupported => _isWindows;
+  bool get _isWebViewSupported => _isDesktop;
 
   @override
   Widget build(BuildContext context) {
@@ -252,13 +253,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Widget _buildWebView(bool isDarkMode) {
-    if (_isWindows) {
-      return _buildWindowsWebView(isDarkMode);
+    if (_isDesktop) {
+      return _buildDesktopWebView(isDarkMode);
     }
     return _buildUnsupportedView(isDarkMode);
   }
 
-  Widget _buildWindowsWebView(bool isDarkMode) {
+  Widget _buildDesktopWebView(bool isDarkMode) {
     return InAppWebView(
       initialUrlRequest: URLRequest(url: _homeUri),
       initialSettings: InAppWebViewSettings(
@@ -277,6 +278,29 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       ),
       onWebViewCreated: (controller) => _inAppWebViewController = controller,
       shouldOverrideUrlLoading: (controller, action) async {
+        final url = action.request.url?.toString() ?? '';
+        final uri = Uri.tryParse(url);
+        
+        if (uri != null) {
+          final extension = path.extension(uri.path).toLowerCase();
+          if (extension == '.zip' || extension == '.rar' || extension == '.7z') {
+            final suggestedName = path.basename(uri.path);
+            final choice = await _showDownloadChoiceDialog(
+              context,
+              suggestedName: suggestedName,
+              url: url,
+            );
+            if (choice != _MarketplaceDownloadChoice.cancel && mounted) {
+              await _handleDownload(
+                uri: uri,
+                suggestedName: suggestedName,
+                autoInstall: choice == _MarketplaceDownloadChoice.downloadAndInstall,
+              );
+            }
+            return NavigationActionPolicy.CANCEL;
+          }
+        }
+        
         return NavigationActionPolicy.ALLOW;
       },
       onLoadStart: (controller, url) {
@@ -322,13 +346,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Future<void> _loadUri(WebUri uri) async {
-    if (_isWindows) {
+    if (_isDesktop) {
       await _inAppWebViewController?.loadUrl(urlRequest: URLRequest(url: uri));
     }
   }
 
   Future<void> _handleBackNavigation() async {
-    if (_isWindows) {
+    if (_isDesktop) {
       if (await _inAppWebViewController?.canGoBack() ?? false) {
         await _inAppWebViewController?.goBack();
       }
@@ -336,7 +360,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Future<void> _handleForwardNavigation() async {
-    if (_isWindows) {
+    if (_isDesktop) {
       if (await _inAppWebViewController?.canGoForward() ?? false) {
         await _inAppWebViewController?.goForward();
       }
@@ -344,7 +368,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Future<void> _handleReload() async {
-    if (_isWindows) {
+    if (_isDesktop) {
       await _inAppWebViewController?.reload();
     }
   }
@@ -538,8 +562,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
     final httpClient = HttpClient();
     
-    // Fix SSL certificate issues on Windows
-    if (Platform.isWindows) {
+    // Fix SSL certificate issues on Windows and Linux
+    if (Platform.isWindows || Platform.isLinux) {
       httpClient.badCertificateCallback = (cert, host, port) => true;
     }
 
@@ -554,17 +578,30 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       final sink = targetFile.openWrite();
       final total = response.contentLength;
       int received = 0;
+      int lastProgressUpdate = 0;
+      const progressUpdateThreshold = 262144; // Оновлювати прогрес кожні 256 KB
 
-      await response.listen((chunk) {
-        received += chunk.length;
-        sink.add(chunk);
-        if (total > 0) {
-          progressNotifier.value = min(received / total, 1);
-        } else {
-          progressNotifier.value = null;
-        }
-      }).asFuture();
+      await response.listen(
+        (chunk) {
+          received += chunk.length;
+          sink.add(chunk);
+          
+          // Оновлювати прогрес не частіше ніж кожні 256 KB
+          if (received - lastProgressUpdate >= progressUpdateThreshold || received == total) {
+            if (total > 0) {
+              progressNotifier.value = min(received / total, 1);
+            } else {
+              progressNotifier.value = null;
+            }
+            lastProgressUpdate = received;
+          }
+        },
+        onDone: () {},
+        onError: (e) => throw e,
+        cancelOnError: true,
+      ).asFuture();
 
+      await sink.flush();
       await sink.close();
       progressNotifier.value = 1;
 

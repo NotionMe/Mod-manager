@@ -133,23 +133,78 @@ class _ModCardWidgetState extends State<ModCardWidget> {
                         Positioned(
                           bottom: 12,
                           right: 12,
-                          child: Material(
-                            color: Colors.black.withOpacity(0.35),
-                            borderRadius: BorderRadius.circular(12),
-                            child: InkWell(
-                              onTap: widget.onFavoriteToggle,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Icon(
-                                  widget.mod.isFavorite ? Icons.star : Icons.star_border,
-                                  size: 18,
-                                  color: widget.mod.isFavorite
-                                      ? const Color(0xFFFACC15)
-                                      : Colors.white.withOpacity(0.8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Індикатор keybinds
+                              if (widget.mod.keybinds != null && widget.mod.keybinds!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF1E293B),
+                                          Color(0xFF0F172A),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: const Color(0xFFFBBF24).withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFFBBF24).withOpacity(0.2),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.keyboard_outlined,
+                                          size: 14,
+                                          color: Color(0xFFFBBF24),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${widget.mod.keybinds!.length}',
+                                          style: const TextStyle(
+                                            color: Color(0xFFFBBF24),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              // Кнопка favorite
+                              Material(
+                                color: Colors.black.withOpacity(0.35),
+                                borderRadius: BorderRadius.circular(12),
+                                child: InkWell(
+                                  onTap: widget.onFavoriteToggle,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(6),
+                                    child: Icon(
+                                      widget.mod.isFavorite ? Icons.star : Icons.star_border,
+                                      size: 18,
+                                      color: widget.mod.isFavorite
+                                          ? const Color(0xFFFACC15)
+                                          : Colors.white.withOpacity(0.8),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                         
