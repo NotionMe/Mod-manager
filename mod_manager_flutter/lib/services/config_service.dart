@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants.dart';
+import '../utils/path_helper.dart';
 
 /// Сервіс для роботи з конфігурацією додатку
 class ConfigService {
@@ -24,9 +25,20 @@ class ConfigService {
 
   void _initConfigFile() {
     try {
+      final appDataPath = PathHelper.getAppDataPath();
+      final configPath = path.join(appDataPath, AppConstants.configFileName);
+      _configFile = File(configPath);
+      
+      // Створюємо директорію якщо її немає
+      final dir = Directory(appDataPath);
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+      }
+    } catch (e) {
+      // Fallback на поточну директорію для розробки
       final configPath = path.join(Directory.current.path, AppConstants.configFileName);
       _configFile = File(configPath);
-    } catch (e) {}
+    }
   }
 
   String? get modsPath => _prefs.getString(_keyModsPath);
