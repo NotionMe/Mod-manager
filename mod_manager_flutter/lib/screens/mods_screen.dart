@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,6 +58,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
   // Focus node для обробки клавіатури
   final FocusNode _focusNode = FocusNode();
+  late final ScrollController _modsScrollController = ScrollController();
 
   @override
   void initState() {
@@ -93,6 +95,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     _rebuildDebounce?.cancel();
     _characterSelectionDebounce?.cancel();
     _focusNode.dispose();
+    _modsScrollController.dispose();
     super.dispose();
   }
 
@@ -249,8 +252,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         final newIndex = characters.indexWhere(
           (char) => char.id == previousSelectedId,
         );
-        ref.read(selectedCharacterIndexProvider.notifier).state =
-            newIndex != -1 ? newIndex : 0;
+        ref.read(selectedCharacterIndexProvider.notifier).state = newIndex != -1
+            ? newIndex
+            : 0;
       } else if (characters.isNotEmpty) {
         ref.read(selectedCharacterIndexProvider.notifier).state = 0;
       }
@@ -336,10 +340,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              loc.t(
-                'mods.errors.generic',
-                params: {'message': e.toString()},
-              ),
+              loc.t('mods.errors.generic', params: {'message': e.toString()}),
             ),
             backgroundColor: Colors.red,
           ),
@@ -391,10 +392,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              loc.t(
-                'mods.errors.generic',
-                params: {'message': e.toString()},
-              ),
+              loc.t('mods.errors.generic', params: {'message': e.toString()}),
             ),
             backgroundColor: Colors.red,
           ),
@@ -451,10 +449,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              loc.t(
-                'mods.errors.generic',
-                params: {'message': e.toString()},
-              ),
+              loc.t('mods.errors.generic', params: {'message': e.toString()}),
             ),
             backgroundColor: Colors.red,
           ),
@@ -714,10 +709,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              loc.t(
-                'mods.errors.generic',
-                params: {'message': e.toString()},
-              ),
+              loc.t('mods.errors.generic', params: {'message': e.toString()}),
             ),
             backgroundColor: Colors.red,
           ),
@@ -862,10 +854,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         PopupMenuItem(
           child: Row(
             children: [
-              Icon(
-                mod.isFavorite ? Icons.star : Icons.star_border,
-                size: 18,
-              ),
+              Icon(mod.isFavorite ? Icons.star : Icons.star_border, size: 18),
               const SizedBox(width: 8),
               Text(
                 mod.isFavorite
@@ -1244,25 +1233,58 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                               ),
                             )
                           : AnimationLimiter(
-                              child: GridView.builder(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: AppConstants.smallPadding,
-                                ),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 6,
-                                      childAspectRatio: 0.7,
-                                      crossAxisSpacing: 16,
-                                      mainAxisSpacing: 16,
+                              child: ScrollConfiguration(
+                                behavior: ScrollConfiguration.of(context)
+                                    .copyWith(
+                                      dragDevices: {
+                                        PointerDeviceKind.touch,
+                                        PointerDeviceKind.mouse,
+                                        PointerDeviceKind.trackpad,
+                                        PointerDeviceKind.stylus,
+                                      },
+                                      physics: const BouncingScrollPhysics(),
                                     ),
-                                itemCount:
-                                    currentSkins.length +
-                                    1, // +1 для кнопки "Додати"
-                                itemBuilder: (context, index) {
-                                  // Кнопка "Додати" в кінці
-                                  if (index == currentSkins.length) {
+                                child: GridView.builder(
+                                  controller: _modsScrollController,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: AppConstants.smallPadding,
+                                  ),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 6,
+                                        childAspectRatio: 0.7,
+                                        crossAxisSpacing: 16,
+                                        mainAxisSpacing: 16,
+                                      ),
+                                  itemCount:
+                                      currentSkins.length +
+                                      1, // +1 для кнопки "Додати"
+                                  itemBuilder: (context, index) {
+                                    // Кнопка "Додати" в кінці
+                                    if (index == currentSkins.length) {
+                                      return AnimationConfiguration.staggeredGrid(
+                                        key: const ValueKey('add_mod_card'),
+                                        position: index,
+                                        columnCount: 4,
+                                        duration: const Duration(
+                                          milliseconds: 500,
+                                        ),
+                                        child: ScaleAnimation(
+                                          scale: 0.5,
+                                          curve: Curves.easeOutBack,
+                                          child: FadeInAnimation(
+                                            curve: Curves.easeOut,
+                                            child: _buildAddModCard(),
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    final mod = currentSkins[index];
                                     return AnimationConfiguration.staggeredGrid(
-                                      key: const ValueKey('add_mod_card'),
+                                      key: ValueKey(
+                                        'mod_${mod.id}_${mod.isActive}',
+                                      ),
                                       position: index,
                                       columnCount: 4,
                                       duration: const Duration(
@@ -1273,30 +1295,12 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                                         curve: Curves.easeOutBack,
                                         child: FadeInAnimation(
                                           curve: Curves.easeOut,
-                                          child: _buildAddModCard(),
+                                          child: _buildModCard(mod),
                                         ),
                                       ),
                                     );
-                                  }
-
-                                  final mod = currentSkins[index];
-                                  return AnimationConfiguration.staggeredGrid(
-                                    key: ValueKey(
-                                      'mod_${mod.id}_${mod.isActive}',
-                                    ),
-                                    position: index,
-                                    columnCount: 4,
-                                    duration: const Duration(milliseconds: 500),
-                                    child: ScaleAnimation(
-                                      scale: 0.5,
-                                      curve: Curves.easeOutBack,
-                                      child: FadeInAnimation(
-                                        curve: Curves.easeOut,
-                                        child: _buildModCard(mod),
-                                      ),
-                                    ),
-                                  );
-                                },
+                                  },
+                                ),
                               ),
                             ),
                     );
@@ -1702,9 +1706,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                   const Icon(Icons.info_outline, color: Colors.white, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      loc.t('mods.snackbar.import_duplicates'),
-                    ),
+                    child: Text(loc.t('mods.snackbar.import_duplicates')),
                   ),
                 ],
               ),
@@ -1738,7 +1740,11 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           builder: (context) => AlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
+                const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF10B981),
+                  size: 28,
+                ),
                 const SizedBox(width: 8),
                 Text(loc.t('mods.snackbar.import_success_title')),
               ],
@@ -1943,10 +1949,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           clipboardData.text!.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(loc.t('clipboard.empty')),
-            backgroundColor: Colors.orange,
-          ),
+            SnackBar(
+              content: Text(loc.t('clipboard.empty')),
+              backgroundColor: Colors.orange,
+            ),
           );
         }
         return;
@@ -2005,9 +2011,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              loc.t('mods.snackbar.paste_error', params: {
-                'message': e.toString(),
-              }),
+              loc.t(
+                'mods.snackbar.paste_error',
+                params: {'message': e.toString()},
+              ),
             ),
             backgroundColor: Colors.red,
           ),

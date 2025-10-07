@@ -22,6 +22,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   file_picker: ^6.0.0
+  flutter_inappwebview: ^6.1.7
+  flutter_inappwebview_windows: 0.7.0-beta.2
+  archive: ^3.5.1
 
   # State Management
   flutter_riverpod: ^2.6.1
