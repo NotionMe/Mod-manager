@@ -14,6 +14,7 @@ import '../core/constants.dart';
 import '../models/character_info.dart';
 import '../models/keybind_info.dart';
 import '../services/api_service.dart';
+import '../services/archive_service.dart';
 import '../utils/state_providers.dart';
 import '../utils/zzz_characters.dart';
 import '../utils/path_helper.dart';
@@ -1944,12 +1945,58 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     bool dialogShown = false;
 
     try {
-      // Фільтруємо тільки папки
+      // Збираємо папки і архіви
       final folderPaths = <String>[];
+      final archivesToExtract = <XFile>[];
+      final successfullyExtractedArchives = <String>[];
+      final tempFoldersToCleanup = <String>[];
+      
       for (final file in files) {
-        final dir = Directory(file.path);
-        if (await dir.exists()) {
-          folderPaths.add(file.path);
+        // Перевіряємо чи це архів
+        if (ArchiveService.isArchiveFile(file.path)) {
+          archivesToExtract.add(file);
+          print('ModsScreen: Знайдено архів: ${file.path}');
+        } else {
+          // Перевіряємо чи це папка
+          final dir = Directory(file.path);
+          if (await dir.exists()) {
+            folderPaths.add(file.path);
+          }
+        }
+      }
+
+      // Розархівуємо архіви
+      if (archivesToExtract.isNotEmpty) {
+        print('ModsScreen: Розархівування ${archivesToExtract.length} архівів...');
+        
+        for (final archiveFile in archivesToExtract) {
+          final file = File(archiveFile.path);
+          
+          if (!await file.exists()) {
+            print('ModsScreen: Файл не існує: ${archiveFile.path}');
+            continue;
+          }
+          
+          final result = await ArchiveService.extractArchive(
+            archiveFile: file,
+          );
+          
+          if (result.success && result.extractedFolders != null) {
+            folderPaths.addAll(result.extractedFolders!);
+            tempFoldersToCleanup.addAll(result.extractedFolders!);
+            successfullyExtractedArchives.add(archiveFile.path);
+            print('ModsScreen: Розархівовано ${result.extractedFolders!.length} папок з ${archiveFile.name}');
+          } else {
+            print('ModsScreen: Помилка розархівування ${archiveFile.name}: ${result.error}');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Помилка розархівування ${archiveFile.name}: ${result.error}'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          }
         }
       }
 
@@ -2030,6 +2077,25 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       }
 
       if (importedMods.isEmpty) {
+        // Очищаємо тимчасові папки якщо імпорт не вдався
+        if (tempFoldersToCleanup.isNotEmpty) {
+          print('ModsScreen: Очищення ${tempFoldersToCleanup.length} тимчасових папок (імпорт не вдався)...');
+          for (final tempPath in tempFoldersToCleanup) {
+            try {
+              final tempDir = Directory(tempPath);
+              if (await tempDir.exists()) {
+                final parentDir = tempDir.parent;
+                if (parentDir.path.contains('zzz_archive_extract_')) {
+                  await parentDir.delete(recursive: true);
+                  print('ModsScreen: Видалено тимчасову директорію: ${parentDir.path}');
+                }
+              }
+            } catch (e) {
+              print('ModsScreen: Помилка очищення тимчасової папки $tempPath: $e');
+            }
+          }
+        }
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -2063,6 +2129,42 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
       // Перезавантажуємо список модів
       await loadMods(showLoading: false);
+
+      // Видаляємо успішно імпортовані архіви
+      if (successfullyExtractedArchives.isNotEmpty) {
+        print('ModsScreen: Видалення ${successfullyExtractedArchives.length} архівів...');
+        for (final archivePath in successfullyExtractedArchives) {
+          try {
+            final archiveFile = File(archivePath);
+            if (await archiveFile.exists()) {
+              await archiveFile.delete();
+              print('ModsScreen: Видалено архів: $archivePath');
+            }
+          } catch (e) {
+            print('ModsScreen: Помилка видалення архіву $archivePath: $e');
+          }
+        }
+      }
+
+      // Очищаємо тимчасові папки після успішного імпорту
+      if (tempFoldersToCleanup.isNotEmpty) {
+        print('ModsScreen: Очищення ${tempFoldersToCleanup.length} тимчасових папок...');
+        for (final tempPath in tempFoldersToCleanup) {
+          try {
+            final tempDir = Directory(tempPath);
+            if (await tempDir.exists()) {
+              // Отримуємо батьківську директорію (zzz_archive_extract_*)
+              final parentDir = tempDir.parent;
+              if (parentDir.path.contains('zzz_archive_extract_')) {
+                await parentDir.delete(recursive: true);
+                print('ModsScreen: Видалено тимчасову директорію: ${parentDir.path}');
+              }
+            }
+          } catch (e) {
+            print('ModsScreen: Помилка очищення тимчасової папки $tempPath: $e');
+          }
+        }
+      }
 
       if (mounted) {
         // Показуємо детальне повідомлення про успіх

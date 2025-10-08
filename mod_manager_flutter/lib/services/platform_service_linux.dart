@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:url_launcher/url_launcher.dart';
 import 'platform_service.dart';
 
 /// Linux-специфічна реалізація PlatformService
@@ -199,6 +200,65 @@ class LinuxPlatformService implements PlatformService {
     }
     
     return 'unknown';
+  }
+  
+  @override
+  Future<bool> openUrlInBrowser(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      final canOpen = await canLaunchUrl(uri);
+      
+      if (canOpen) {
+        final result = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (result) {
+          print('LinuxPlatformService: Браузер відкрито: $url');
+          return true;
+        }
+      }
+      
+      final xdgResult = await Process.run('xdg-open', [url]);
+      if (xdgResult.exitCode == 0) {
+        print('LinuxPlatformService: Браузер відкрито через xdg-open: $url');
+        return true;
+      }
+      
+      print('LinuxPlatformService: Не вдалося відкрити браузер');
+      return false;
+    } catch (e) {
+      print('LinuxPlatformService: Помилка відкриття браузера: $e');
+      return false;
+    }
+  }
+  
+  @override
+  String? getSystemDownloadsPath() {
+    try {
+      final homeDir = Platform.environment['HOME'];
+      if (homeDir == null) return null;
+      
+      final xdgDownloadDir = Platform.environment['XDG_DOWNLOAD_DIR'];
+      if (xdgDownloadDir != null && xdgDownloadDir.isNotEmpty) {
+        return xdgDownloadDir;
+      }
+      
+      final downloadsDir = path.join(homeDir, 'Downloads');
+      if (Directory(downloadsDir).existsSync()) {
+        return downloadsDir;
+      }
+      
+      final ukDownloadsDir = path.join(homeDir, 'Завантаження');
+      if (Directory(ukDownloadsDir).existsSync()) {
+        return ukDownloadsDir;
+      }
+      
+      return downloadsDir;
+    } catch (e) {
+      print('LinuxPlatformService: Помилка отримання Downloads директорії: $e');
+      return null;
+    }
   }
   
   // ===== Приватні методи =====

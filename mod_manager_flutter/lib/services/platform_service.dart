@@ -28,4 +28,10 @@ abstract class PlatformService {
   
   /// Визначає тип дисплейного сервера (для Linux)
   String getDisplayServerType() => 'unknown';
+  
+  /// Відкриває URL у зовнішньому браузері
+  Future<bool> openUrlInBrowser(String url);
+  
+  /// Отримує шлях до системної Downloads директорії користувача
+  String? getSystemDownloadsPath();
 }

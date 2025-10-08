@@ -45,7 +45,10 @@
     "open_marketplace": "Відкрити Маркетплейс",
     "open_browser": "Відкрити у Браузері",
     "webview_unavailable": "WebView недоступний. Будь ласка, встановіть webkit2gtk-4.1.",
-    "error_opening": "Помилка відкриття маркетплейсу"
+    "error_opening": "Помилка відкриття маркетплейсу",
+    "watching_downloads": "Відстежується папка Завантаження...",
+    "start_watching": "Почати відстежування",
+    "stop_watching": "Зупинити відстежування"
   },
   "mods": {
     "favorites": "Улюблені",
