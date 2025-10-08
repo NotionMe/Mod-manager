@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
 import 'package:win32/win32.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'platform_service.dart';
 
 /// Windows-специфічна реалізація PlatformService
@@ -236,6 +237,40 @@ class WindowsPlatformService implements PlatformService {
   String getDisplayServerType() {
     // Windows завжди використовує DWM (Desktop Window Manager)
     return 'windows-dwm';
+  }
+  
+  @override
+  Future<bool> openUrlInBrowser(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      final result = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (result) {
+        print('WindowsPlatformService: Браузер відкрито: $url');
+        return true;
+      }
+      
+      print('WindowsPlatformService: Не вдалося відкрити браузер');
+      return false;
+    } catch (e) {
+      print('WindowsPlatformService: Помилка відкриття браузера: $e');
+      return false;
+    }
+  }
+  
+  @override
+  String? getSystemDownloadsPath() {
+    try {
+      final userProfile = Platform.environment['USERPROFILE'];
+      if (userProfile == null) return null;
+      
+      return path.join(userProfile, 'Downloads');
+    } catch (e) {
+      print('WindowsPlatformService: Помилка отримання Downloads директорії: $e');
+      return null;
+    }
   }
   
   // ===== Приватні методи =====

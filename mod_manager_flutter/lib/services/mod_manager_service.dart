@@ -310,7 +310,7 @@ class ModManagerService {
         importedMods.add(modName);
 
         // Автоматично визначаємо тег персонажа з назви папки
-        final detectedChar = _detectCharacterFromName(modName);
+        final detectedChar = await _detectCharacterFromName(modName);
         if (detectedChar != null) {
           autoTags[modName] = detectedChar;
         }
@@ -323,25 +323,217 @@ class ModManagerService {
   }
 
   /// Визначає персонажа з назви моду
-  String? _detectCharacterFromName(String modName) {
+  Future<String?> _detectCharacterFromName(String modName) async {
     final nameLower = modName.toLowerCase();
     
-    // Список персонажів для автовизначення (з utils/zzz_characters.dart)
-    const characters = [
-      'anby', 'anton', 'astra', 'belle', 'ben', 'billy', 'burnice', 'caesar',
-      'corin', 'ellen', 'evelyn', 'grace', 'harumasa', 'hugo', 'jane', 'jufufu',
-      'koleda', 'lighter', 'lucy', 'lycaon', 'miyabi', 'nekomata', 'nicole',
-      'orphie', 'panyinhu', 'piper', 'pulchra', 'quinqiy', 'rina', 'seth',
-      'solder0anby', 'solder11', 'soukaku', 'trigger', 'vivian', 'wise',
-      'yanagi', 'yixuan', 'zhuyuan',
-    ];
+    // Спробуємо знайти персонажа в INI файлах моду
+    try {
+      final modsPath = _configService.modsPath;
+      if (modsPath == null || modsPath.isEmpty) {
+        // Якщо шлях не налаштовано, просто шукаємо в назві
+      } else {
+        final modPath = path.join(modsPath, modName);
+        final modDir = Directory(modPath);
+      
+      if (await modDir.exists()) {
+        // Шукаємо INI файли
+        final iniFiles = await modDir
+            .list(recursive: true)
+            .where((entity) => 
+                entity is File && 
+                path.extension(entity.path).toLowerCase() == '.ini')
+            .cast<File>()
+            .toList();
+        
+        for (final iniFile in iniFiles) {
+          try {
+            final content = await iniFile.readAsString();
+            final contentLower = content.toLowerCase();
+            
+            // Шукаємо в Header або секціях INI
+            final charFromIni = _findCharacterInText(contentLower);
+            if (charFromIni != null) {
+              print('ModManager: Виявлено персонажа "$charFromIni" в INI файлі ${path.basename(iniFile.path)} моду "$modName"');
+              return charFromIni;
+            }
+          } catch (e) {
+            // Ігноруємо помилки читання окремих файлів
+          }
+        }
+        
+        // Також перевіряємо імена папок всередині моду
+        final subdirs = await modDir
+            .list(recursive: false)
+            .where((entity) => entity is Directory)
+            .cast<Directory>()
+            .toList();
+        
+        for (final subdir in subdirs) {
+          final subdirName = path.basename(subdir.path).toLowerCase();
+          final charFromSubdir = _findCharacterInText(subdirName);
+          if (charFromSubdir != null) {
+            print('ModManager: Виявлено персонажа "$charFromSubdir" в папці "$subdirName" моду "$modName"');
+            return charFromSubdir;
+          }
+        }
+      }
+      }
+    } catch (e) {
+      print('ModManager: Помилка пошуку в файлах моду "$modName": $e');
+    }
+    
+    // Мапа персонажів з альтернативними іменами для кращого розпізнавання
+    final characterAliases = <String, List<String>>{
+      'alice': ['alice'],
+      'anby': ['anby'],
+      'anton': ['anton'],
+      'astra': ['astra', 'astrayao', 'astra yao'],
+      'belle': ['belle'],
+      'ben': ['ben', 'bigger', 'ben bigger'],
+      'billy': ['billy', 'billyherinkton', 'billy kid'],
+      'burnice': ['burnice', 'burnice white'],
+      'caesar': ['caesar', 'caesar king'],
+      'corin': ['corin', 'corin wickes'],
+      'ellen': ['ellen', 'ellen joe'],
+      'evelyn': ['evelyn'],
+      'grace': ['grace', 'grace howard'],
+      'harumasa': ['harumasa', 'asaba harumasa'],
+      'hugo': ['hugo'],
+      'jane': ['jane', 'janedoe', 'jane doe'],
+      'jufufu': ['jufufu', 'ju fufu'],
+      'koleda': ['koleda', 'koleda belobog'],
+      'lighter': ['lighter', 'lighter lorenz'],
+      'lucy': ['lucy', 'lucy kushinada'],
+      'lycaon': ['lycaon', 'von lycaon', 'vonlycaon'],
+      'miyabi': ['miyabi', 'hoshimi miyabi'],
+      'nekomata': ['nekomata', 'nekomiya mana'],
+      'nicole': ['nicole', 'nicole demara'],
+      'orphie': ['orphie', 'orphiemagus', 'orphie magus'],
+      'panyinhu': ['panyinhu', 'pan yinhu'],
+      'piper': ['piper', 'piper wheel'],
+      'pulchra': ['pulchra'],
+      'quinqiy': ['quinqiy', 'qingyi'],
+      'rina': ['rina', 'alexandrina'],
+      'seed': ['seed'],
+      'seth': ['seth', 'seth lowell'],
+      'solder0anby': ['solder0anby', 'soldier 0', 'soldier0'],
+      'solder11': ['solder11', 'soldier 11', 'soldier11'],
+      'soukaku': ['soukaku'],
+      'trigger': ['trigger'],
+      'vivian': ['vivian'],
+      'wise': ['wise'],
+      'yanagi': ['yanagi', 'tsukishiro yanagi'],
+      'yixuan': ['yixuan'],
+      'yuzuha': ['yuzuha'],
+      'zhuyuan': ['zhuyuan', 'zhu yuan'],
+    };
 
-    for (final char in characters) {
-      if (nameLower.contains(char)) {
-        return char;
+    // Спочатку шукаємо повні збіги для точності
+    for (final entry in characterAliases.entries) {
+      final charId = entry.key;
+      final aliases = entry.value;
+      
+      for (final alias in aliases) {
+        // Шукаємо як окреме слово з границями
+        final pattern = RegExp(r'\b' + RegExp.escape(alias) + r'\b', caseSensitive: false);
+        if (pattern.hasMatch(nameLower)) {
+          print('ModManager: Виявлено персонажа "$charId" (збіг: "$alias") в "$modName"');
+          return charId;
+        }
+      }
+    }
+    
+    // Якщо не знайшли повну збіг, шукаємо часткові збіги (як раніше)
+    for (final entry in characterAliases.entries) {
+      final charId = entry.key;
+      final aliases = entry.value;
+      
+      for (final alias in aliases) {
+        if (nameLower.contains(alias)) {
+          print('ModManager: Виявлено персонажа "$charId" (частковий збіг: "$alias") в "$modName"');
+          return charId;
+        }
       }
     }
 
+    print('ModManager: Не вдалося визначити персонажа для "$modName"');
+    return null;
+  }
+  
+  /// Допоміжний метод для пошуку персонажа в тексті
+  String? _findCharacterInText(String text) {
+    final textLower = text.toLowerCase();
+    
+    final characterAliases = <String, List<String>>{
+      'alice': ['alice'],
+      'anby': ['anby'],
+      'anton': ['anton'],
+      'astra': ['astra', 'astrayao', 'astra yao'],
+      'belle': ['belle'],
+      'ben': ['ben', 'bigger', 'ben bigger'],
+      'billy': ['billy', 'billyherinkton', 'billy kid'],
+      'burnice': ['burnice', 'burnice white'],
+      'caesar': ['caesar', 'caesar king'],
+      'corin': ['corin', 'corin wickes'],
+      'ellen': ['ellen', 'ellen joe'],
+      'evelyn': ['evelyn'],
+      'grace': ['grace', 'grace howard'],
+      'harumasa': ['harumasa', 'asaba harumasa'],
+      'hugo': ['hugo'],
+      'jane': ['jane', 'janedoe', 'jane doe'],
+      'jufufu': ['jufufu', 'ju fufu'],
+      'koleda': ['koleda', 'koleda belobog'],
+      'lighter': ['lighter', 'lighter lorenz'],
+      'lucy': ['lucy', 'lucy kushinada'],
+      'lycaon': ['lycaon', 'von lycaon', 'vonlycaon'],
+      'miyabi': ['miyabi', 'hoshimi miyabi'],
+      'nekomata': ['nekomata', 'nekomiya mana'],
+      'nicole': ['nicole', 'nicole demara'],
+      'orphie': ['orphie', 'orphiemagus', 'orphie magus'],
+      'panyinhu': ['panyinhu', 'pan yinhu'],
+      'piper': ['piper', 'piper wheel'],
+      'pulchra': ['pulchra'],
+      'quinqiy': ['quinqiy', 'qingyi'],
+      'rina': ['rina', 'alexandrina'],
+      'seed': ['seed'],
+      'seth': ['seth', 'seth lowell'],
+      'solder0anby': ['solder0anby', 'soldier 0', 'soldier0'],
+      'solder11': ['solder11', 'soldier 11', 'soldier11'],
+      'soukaku': ['soukaku'],
+      'trigger': ['trigger'],
+      'vivian': ['vivian'],
+      'wise': ['wise'],
+      'yanagi': ['yanagi', 'tsukishiro yanagi'],
+      'yixuan': ['yixuan'],
+      'yuzuha': ['yuzuha'],
+      'zhuyuan': ['zhuyuan', 'zhu yuan'],
+    };
+    
+    // Спочатку шукаємо повні збіги
+    for (final entry in characterAliases.entries) {
+      final charId = entry.key;
+      final aliases = entry.value;
+      
+      for (final alias in aliases) {
+        final pattern = RegExp(r'\b' + RegExp.escape(alias) + r'\b', caseSensitive: false);
+        if (pattern.hasMatch(textLower)) {
+          return charId;
+        }
+      }
+    }
+    
+    // Часткові збіги
+    for (final entry in characterAliases.entries) {
+      final charId = entry.key;
+      final aliases = entry.value;
+      
+      for (final alias in aliases) {
+        if (textLower.contains(alias)) {
+          return charId;
+        }
+      }
+    }
+    
     return null;
   }
 
@@ -362,7 +554,7 @@ class ModManagerService {
         }
 
         // Автоматично визначаємо тег з назви
-        final detectedChar = _detectCharacterFromName(modName);
+        final detectedChar = await _detectCharacterFromName(modName);
         if (detectedChar != null) {
           await _configService.setModCharacterTag(modName, detectedChar);
           autoTags[modName] = detectedChar;

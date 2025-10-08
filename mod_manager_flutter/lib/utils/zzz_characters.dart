@@ -14,6 +14,7 @@ class CharacterData {
 /// List of all available characters in Zenless Zone Zero
 /// IDs are normalized for consistency, asset names match actual file names
 const List<CharacterData> zzzCharactersData = [
+  CharacterData(id: 'alice', displayName: 'Alice', assetName: 'alice'),
   CharacterData(id: 'anby', displayName: 'Anby', assetName: 'anby'),
   CharacterData(id: 'anton', displayName: 'Anton', assetName: 'anton'),
   CharacterData(id: 'astra', displayName: 'Astra', assetName: 'astra'),
@@ -43,6 +44,7 @@ const List<CharacterData> zzzCharactersData = [
   CharacterData(id: 'pulchra', displayName: 'Pulchra', assetName: 'pulchra'),
   CharacterData(id: 'quinqiy', displayName: 'Qingyi', assetName: 'quinqiy'),
   CharacterData(id: 'rina', displayName: 'Rina', assetName: 'rina'),
+  CharacterData(id: 'seed', displayName: 'Seed', assetName: 'seed'),
   CharacterData(id: 'seth', displayName: 'Seth', assetName: 'seth'),
   CharacterData(id: 'solder0anby', displayName: 'Soldier 0 Anby', assetName: 'solder0anby'),
   CharacterData(id: 'solder11', displayName: 'Soldier 11', assetName: 'solder11'),
@@ -52,18 +54,19 @@ const List<CharacterData> zzzCharactersData = [
   CharacterData(id: 'wise', displayName: 'Wise', assetName: 'wise'),
   CharacterData(id: 'yanagi', displayName: 'Yanagi', assetName: 'yanagi'),
   CharacterData(id: 'yixuan', displayName: 'Yixuan', assetName: 'yixuan'),
+  CharacterData(id: 'yuzuha', displayName: 'Yuzuha', assetName: 'yuzuha'),
   CharacterData(id: 'zhuyuan', displayName: 'Zhu Yuan', assetName: 'zhuyuan'),
 ];
 
 /// Legacy list for backward compatibility
 @deprecated
 const List<String> zzzCharacters = [
-  'anby', 'anton', 'astra', 'belle', 'ben', 'billy', 'burnice', 'caesar',
+  'alice', 'anby', 'anton', 'astra', 'belle', 'ben', 'billy', 'burnice', 'caesar',
   'corin', 'ellen', 'evelyn', 'grace', 'harumasa', 'hugo', 'jane', 'jufufu',
   'koleda', 'lighter', 'lucy', 'lycaon', 'miyabi', 'nekomata', 'nicole',
-  'orphie', 'panyinhu', 'piper', 'pulchra', 'quinqiy', 'rina', 'seth',
+  'orphie', 'panyinhu', 'piper', 'pulchra', 'quinqiy', 'rina', 'seed', 'seth',
   'solder0anby', 'solder11', 'soukaku', 'trigger', 'vivian', 'wise',
-  'yanagi', 'yixuan', 'zhuyuan',
+  'yanagi', 'yixuan', 'yuzuha', 'zhuyuan',
 ];
 
 /// Get display name for a character by ID

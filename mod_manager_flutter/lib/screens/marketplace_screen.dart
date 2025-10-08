@@ -12,7 +12,9 @@ import 'package:path/path.dart' as path;
 
 import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
+import '../services/archive_service.dart';
 import '../services/mod_manager_service.dart';
+import '../services/platform_service_factory.dart';
 import '../utils/path_helper.dart';
 import '../utils/state_providers.dart';
 
@@ -32,6 +34,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   double _progress = 0;
+  
+  StreamSubscription<FileSystemEvent>? _downloadsWatcher;
+  final Set<String> _processedFiles = {};
+  bool _isWatchingDownloads = false;
 
   bool get _isWindows => !kIsWeb && Platform.isWindows;
   bool get _isLinux => !kIsWeb && Platform.isLinux;
@@ -45,11 +51,18 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _stopDownloadsWatcher();
     super.dispose();
+  }
+  
+  void _stopDownloadsWatcher() {
+    _downloadsWatcher?.cancel();
+    _downloadsWatcher = null;
+    _isWatchingDownloads = false;
   }
 
   AppLocalizations get loc => context.loc;
-  bool get _isWebViewSupported => _isDesktop;
+  bool get _isWebViewSupported => _isWindows;
 
   @override
   Widget build(BuildContext context) {
@@ -199,6 +212,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   }
 
   Widget _buildUnsupportedView(bool isDarkMode) {
+    if (_isLinux) {
+      return _buildLinuxMarketplaceView(isDarkMode);
+    }
+    
     final url = _homeUri.toString();
     return Center(
       child: Padding(
@@ -244,6 +261,332 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         ),
       ),
     );
+  }
+  
+  Widget _buildLinuxMarketplaceView(bool isDarkMode) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.public,
+                size: 64,
+                color: isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                loc.t('marketplace.linux_title'),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                loc.t('marketplace.linux_body'),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: isDarkMode ? Colors.white70 : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _openBrowserAndStartWatching,
+                    icon: const Icon(Icons.open_in_browser, size: 24),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      child: Text(
+                        loc.t('marketplace.open_marketplace'),
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                  if (_isWatchingDownloads) ...[
+                    const SizedBox(width: 12),
+                    IconButton.filled(
+                      onPressed: () {
+                        setState(() {
+                          _stopDownloadsWatcher();
+                        });
+                      },
+                      icon: const Icon(Icons.stop),
+                      tooltip: loc.t('marketplace.stop_watching'),
+                      style: IconButton.styleFrom(
+                        backgroundColor: isDarkMode 
+                            ? Colors.red.shade700 
+                            : Colors.red.shade600,
+                      ),
+                    ),
+                  ],
+                  if (!_isWatchingDownloads) ...[
+                    const SizedBox(width: 12),
+                    IconButton.filled(
+                      onPressed: _startDownloadsWatcher,
+                      icon: const Icon(Icons.play_arrow),
+                      tooltip: loc.t('marketplace.start_watching'),
+                      style: IconButton.styleFrom(
+                        backgroundColor: isDarkMode 
+                            ? Colors.green.shade700 
+                            : Colors.green.shade600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (_isWatchingDownloads) ...[
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDarkMode 
+                        ? Colors.green.shade900.withOpacity(0.3) 
+                        : Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDarkMode 
+                          ? Colors.green.shade700 
+                          : Colors.green.shade300,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.downloading,
+                        color: isDarkMode 
+                            ? Colors.green.shade300 
+                            : Colors.green.shade700,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          loc.t('marketplace.watching_downloads'),
+                          style: TextStyle(
+                            color: isDarkMode 
+                                ? Colors.green.shade200 
+                                : Colors.green.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _openBrowserAndStartWatching() async {
+    final platformService = PlatformServiceFactory.getInstance();
+    final url = _homeUri.toString();
+    
+    final opened = await platformService.openUrlInBrowser(url);
+    
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text(loc.t('marketplace.error_opening')),
+        ),
+      );
+      return;
+    }
+    
+    _startDownloadsWatcher();
+  }
+  
+  void _startDownloadsWatcher() {
+    if (_isWatchingDownloads) return;
+    
+    final platformService = PlatformServiceFactory.getInstance();
+    final downloadsPath = platformService.getSystemDownloadsPath();
+    
+    if (downloadsPath == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not find Downloads directory'),
+          ),
+        );
+      }
+      return;
+    }
+    
+    final downloadsDir = Directory(downloadsPath);
+    if (!downloadsDir.existsSync()) {
+      downloadsDir.createSync(recursive: true);
+    }
+    
+    setState(() {
+      _isWatchingDownloads = true;
+    });
+    
+    _downloadsWatcher = downloadsDir.watch(events: FileSystemEvent.create).listen(
+      (event) {
+        if (event is FileSystemCreateEvent) {
+          _handleNewDownload(event.path);
+        }
+      },
+    );
+    
+    print('LinuxMarketplace: Watching $downloadsPath for new downloads');
+  }
+  
+  Future<void> _handleNewDownload(String filePath) async {
+    if (_processedFiles.contains(filePath)) return;
+    
+    final extension = path.extension(filePath).toLowerCase();
+    if (extension != '.zip' && extension != '.rar' && extension != '.7z') {
+      return;
+    }
+    
+    _processedFiles.add(filePath);
+    
+    print('LinuxMarketplace: Виявлено новий файл: $filePath');
+    
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    final file = File(filePath);
+    if (!await file.exists()) {
+      print('LinuxMarketplace: Файл не існує: $filePath');
+      return;
+    }
+    
+    print('LinuxMarketplace: Очікування завершення завантаження...');
+    if (!await _waitForFileToBeReady(file)) {
+      print('LinuxMarketplace: Файл не готовий після очікування');
+      return;
+    }
+    
+    print('LinuxMarketplace: Файл готовий: ${file.lengthSync()} bytes');
+    
+    if (!mounted) return;
+    
+    final choice = await _showDownloadChoiceDialog(
+      context,
+      suggestedName: path.basename(filePath),
+      url: filePath,
+    );
+    
+    if (choice != _MarketplaceDownloadChoice.cancel && mounted) {
+      if (choice == _MarketplaceDownloadChoice.downloadAndInstall) {
+        await _installArchiveFromPath(filePath);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                loc.t('marketplace.download_saved', params: {'path': filePath}),
+              ),
+            ),
+          );
+        }
+      }
+    }
+  }
+  
+  Future<bool> _waitForFileToBeReady(File file) async {
+    const maxAttempts = 120;
+    int previousSize = -1;
+    int stableCount = 0;
+    
+    for (int i = 0; i < maxAttempts; i++) {
+      await Future.delayed(const Duration(milliseconds: 1000));
+      
+      if (!await file.exists()) {
+        print('LinuxMarketplace: Файл зник, спроба $i/$maxAttempts');
+        return false;
+      }
+      
+      try {
+        final currentSize = await file.length();
+        print('LinuxMarketplace: Перевірка розміру: $currentSize bytes (спроба ${i+1}/$maxAttempts)');
+        
+        if (currentSize == previousSize && currentSize > 0) {
+          stableCount++;
+          print('LinuxMarketplace: Розмір стабільний ($stableCount/3)');
+          
+          if (stableCount >= 3) {
+            print('LinuxMarketplace: Файл готовий! Розмір: $currentSize bytes');
+            return true;
+          }
+        } else {
+          stableCount = 0;
+        }
+        
+        previousSize = currentSize;
+      } catch (e) {
+        print('LinuxMarketplace: Помилка перевірки розміру файлу: $e');
+        await Future.delayed(const Duration(milliseconds: 1000));
+      }
+    }
+    
+    print('LinuxMarketplace: Таймаут очікування (120 секунд)');
+    return false;
+  }
+  
+  Future<void> _installArchiveFromPath(String filePath) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
+    try {
+      final file = File(filePath);
+      final installResult = await _installArchive(file);
+      
+      if (!mounted) return;
+      
+      installResult.when(
+        success: (mods, message) {
+          final importedMods = mods.join(', ');
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                loc.t(
+                  'marketplace.install_success',
+                  params: {
+                    'mods': importedMods.isEmpty
+                        ? loc.t('marketplace.install_success_default')
+                        : importedMods,
+                  },
+                ),
+              ),
+            ),
+          );
+          if (message != null && message.isNotEmpty) {
+            scaffoldMessenger.showSnackBar(SnackBar(content: Text(message)));
+          }
+        },
+        warning: (message) {
+          scaffoldMessenger.showSnackBar(SnackBar(content: Text(message)));
+        },
+        error: (message) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              content: Text(message),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text(
+            loc.t('marketplace.download_failed', params: {'message': '$e'}),
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildProgressBar() {
@@ -621,45 +964,46 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
     final targetPath = path.join(downloadsDir.path, filename);
     await file.copy(targetPath);
-    await file.parent.delete(recursive: true);
+    
+    try {
+      if (file.parent.path.contains('zzz_marketplace_download_')) {
+        await file.parent.delete(recursive: true);
+      } else {
+        await file.delete();
+      }
+    } catch (e) {
+      print('Marketplace: Помилка видалення файлу після копіювання: $e');
+    }
+    
     return targetPath;
   }
 
   Future<_InstallResult> _installArchive(File archiveFile) async {
+    print('Marketplace: Початок інсталяції архіву: ${archiveFile.path}');
+    print('Marketplace: Розмір файлу: ${await archiveFile.length()} bytes');
+    
     final config = await ApiService.getConfig();
     final modsPath = config['mods_path'] ?? '';
 
     if (modsPath.isEmpty) {
+      print('Marketplace: Шлях до модів не налаштовано');
       return _InstallResult.error(loc.t('marketplace.install_missing_path'));
     }
 
-    final tempExtractDir = await Directory.systemTemp.createTemp(
-      'zzz_marketplace_extract_',
-    );
-
     try {
-      final extension = path.extension(archiveFile.path).toLowerCase();
-      String? extractionError;
-      bool isExtracted = false;
+      // Використовуємо ArchiveService для розархівування
+      final extractionResult = await ArchiveService.extractArchive(
+        archiveFile: archiveFile,
+      );
 
-      if (extension == '.zip') {
-        isExtracted = await _extractZip(archiveFile, tempExtractDir);
-      } else if (extension == '.rar' || extension == '.7z') {
-        final result = await _extractWith7Zip(archiveFile, tempExtractDir);
-        extractionError = result.error;
-        isExtracted = result.success;
-      }
-
-      if (!isExtracted) {
+      if (!extractionResult.success) {
+        print('Marketplace: Помилка розархівування: ${extractionResult.error}');
         return _InstallResult.error(
-          extractionError ?? loc.t('marketplace.install_unsupported'),
+          extractionResult.error ?? loc.t('marketplace.install_unsupported'),
         );
       }
 
-      final directoriesToImport = await _prepareDirectoriesForImport(
-        tempExtractDir,
-        archiveFile,
-      );
+      final directoriesToImport = extractionResult.extractedFolders ?? [];
 
       if (directoriesToImport.isEmpty) {
         return _InstallResult.warning(loc.t('marketplace.install_empty'));
@@ -685,186 +1029,32 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
       return _InstallResult.success(importedMods, message: message);
     } finally {
-      if (await tempExtractDir.exists()) {
-        await tempExtractDir.delete(recursive: true);
-      }
       if (await archiveFile.exists()) {
-        await archiveFile.parent.delete(recursive: true);
+        await _safeDeleteArchive(archiveFile);
       }
     }
   }
-
-  Future<List<String>> _prepareDirectoriesForImport(
-    Directory extractDir,
-    File archiveFile,
-  ) async {
-    final entries = extractDir.listSync();
-    final directories = <String>[];
-
-    if (entries.isEmpty) {
-      return directories;
-    }
-
-    final dirEntries = entries.whereType<Directory>().toList();
-    if (dirEntries.isEmpty) {
-      final baseName = path.basenameWithoutExtension(archiveFile.path);
-      final wrapperDir = Directory(path.join(extractDir.path, baseName));
-      await wrapperDir.create(recursive: true);
-
-      for (final entity in entries) {
-        final targetPath = path.join(
-          wrapperDir.path,
-          path.basename(entity.path),
-        );
-        if (entity is File) {
-          await entity.copy(targetPath);
-          await entity.delete();
-        } else if (entity is Directory) {
-          await Directory(entity.path).rename(targetPath);
-        }
-      }
-      directories.add(wrapperDir.path);
-      return directories;
-    }
-
-    for (final dir in dirEntries) {
-      directories.add(dir.path);
-    }
-
-    return directories;
-  }
-
-  Future<bool> _extractZip(File archiveFile, Directory destination) async {
+  
+  Future<void> _safeDeleteArchive(File archiveFile) async {
     try {
-      final bytes = await archiveFile.readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes, verify: true);
-
-      for (final file in archive) {
-        final sanitizedPath = _sanitizeArchivePath(destination.path, file.name);
-        if (sanitizedPath == null) {
-          continue;
-        }
-
-        if (file.isFile) {
-          final outFile = File(sanitizedPath);
-          await outFile.create(recursive: true);
-          await outFile.writeAsBytes(file.content as List<int>);
-        } else {
-          final dir = Directory(sanitizedPath);
-          if (!await dir.exists()) {
-            await dir.create(recursive: true);
-          }
-        }
+      final platformService = PlatformServiceFactory.getInstance();
+      final systemDownloadsPath = platformService.getSystemDownloadsPath();
+      
+      final archiveParentPath = archiveFile.parent.path;
+      
+      final isInSystemDownloads = systemDownloadsPath != null && 
+          path.equals(archiveParentPath, systemDownloadsPath);
+      
+      if (isInSystemDownloads) {
+        await archiveFile.delete();
+        print('Marketplace: Видалено тільки файл з системної Downloads: ${archiveFile.path}');
+      } else {
+        await archiveFile.parent.delete(recursive: true);
+        print('Marketplace: Видалено тимчасову директорію: ${archiveFile.parent.path}');
       }
-
-      return true;
-    } catch (_) {
-      return false;
+    } catch (e) {
+      print('Marketplace: Помилка видалення архіву: $e');
     }
-  }
-
-  Future<_ArchiveExtractionResult> _extractWith7Zip(
-    File archiveFile,
-    Directory destination,
-  ) async {
-    final sevenZipPath = await _locate7Zip();
-    if (sevenZipPath == null) {
-      return _ArchiveExtractionResult(
-        false,
-        loc.t('marketplace.install_7zip_missing'),
-      );
-    }
-
-    final result = await Process.run(sevenZipPath, [
-      'x',
-      archiveFile.path,
-      '-o${destination.path}',
-      '-y',
-    ]);
-
-    if (result.exitCode != 0) {
-      final errorOutput = result.stderr.toString().trim();
-      return _ArchiveExtractionResult(
-        false,
-        errorOutput.isNotEmpty
-            ? errorOutput
-            : loc.t('marketplace.install_extract_failed'),
-      );
-    }
-
-    return const _ArchiveExtractionResult(true);
-  }
-
-  Future<String?> _locate7Zip() async {
-    if (Platform.isWindows) {
-      final whereResult = await Process.run('where', ['7z']);
-      if (whereResult.exitCode == 0) {
-        final lines = whereResult.stdout
-            .toString()
-            .split(RegExp(r'[\r\n]+'))
-            .where((line) => line.trim().isNotEmpty);
-        if (lines.isNotEmpty) {
-          return lines.first.trim();
-        }
-      }
-
-      final candidates = [
-        path.join(
-          Platform.environment['ProgramFiles'] ?? '',
-          '7-Zip',
-          '7z.exe',
-        ),
-        path.join(
-          Platform.environment['ProgramFiles(x86)'] ?? '',
-          '7-Zip',
-          '7z.exe',
-        ),
-      ];
-
-      for (final candidate in candidates) {
-        if (candidate.trim().isEmpty) continue;
-        final file = File(candidate);
-        if (await file.exists()) {
-          return file.path;
-        }
-      }
-      return null;
-    }
-
-    if (Platform.isLinux || Platform.isMacOS) {
-      final commands = ['7z', '7za', '7zr'];
-      for (final command in commands) {
-        try {
-          final whichResult = await Process.run('which', [command]);
-          if (whichResult.exitCode == 0) {
-            final pathResult = whichResult.stdout
-                .toString()
-                .split(RegExp(r'[\r\n]+'))
-                .firstWhere((line) => line.trim().isNotEmpty, orElse: () => '')
-                .trim();
-            if (pathResult.isNotEmpty) {
-              return pathResult;
-            }
-          }
-        } catch (_) {
-          // Ignore failures and continue searching.
-        }
-      }
-    }
-
-    return null;
-  }
-
-  String? _sanitizeArchivePath(String base, String relativePath) {
-    final normalized = path.normalize(relativePath);
-    if (normalized.contains('..')) {
-      return null;
-    }
-    final fullPath = path.join(base, normalized);
-    if (!path.isWithin(base, fullPath)) {
-      return null;
-    }
-    return fullPath;
   }
 
   Future<void> _showProgressDialog(ValueNotifier<double?> progressNotifier) {
@@ -946,11 +1136,4 @@ class _InstallResult {
       warning(message!);
     }
   }
-}
-
-class _ArchiveExtractionResult {
-  final bool success;
-  final String? error;
-
-  const _ArchiveExtractionResult(this.success, [this.error]);
 }
