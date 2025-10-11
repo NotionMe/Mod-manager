@@ -16,14 +16,15 @@ class WelcomeScreen extends ConsumerStatefulWidget {
   ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProviderStateMixin {
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
+    with TickerProviderStateMixin {
   int _currentStep = 0;
   final int _totalSteps = 3;
-  
+
   String _selectedLanguage = 'en';
   final _modsPathController = TextEditingController();
   final _saveModsPathController = TextEditingController();
-  
+
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   late AnimationController _slideController;
@@ -36,22 +37,23 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
-    );
-    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeIn));
+
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
-    
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+        );
+
     _fadeController.forward();
     _slideController.forward();
-    
+
     _selectedLanguage = ref.read(localeProvider).languageCode;
   }
 
@@ -92,8 +94,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
 
   Future<void> _completeSetup() async {
     final loc = context.loc;
-    
-    if (_modsPathController.text.isEmpty || _saveModsPathController.text.isEmpty) {
+
+    if (_modsPathController.text.isEmpty ||
+        _saveModsPathController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(loc.t('welcome.directories.validation_error')),
@@ -109,15 +112,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
         modsPath: _modsPathController.text,
         saveModsPath: _saveModsPathController.text,
       );
-      
+
       widget.onComplete();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -149,14 +149,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: isDarkMode
-                ? [
-                    const Color(0xFF0F0F0F),
-                    const Color(0xFF1A1A1A),
-                  ]
-                : [
-                    const Color(0xFFF5F5F5),
-                    Colors.white,
-                  ],
+                ? [const Color(0xFF0F0F0F), const Color(0xFF1A1A1A)]
+                : [const Color(0xFFF5F5F5), Colors.white],
           ),
         ),
         child: SafeArea(
@@ -215,10 +209,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
           const SizedBox(height: 8),
           Text(
             loc.t('welcome.subtitle'),
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
@@ -234,7 +225,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
       children: List.generate(_totalSteps, (index) {
         final isActive = index == _currentStep;
         final isCompleted = index < _currentStep;
-        
+
         return Row(
           children: [
             AnimatedContainer(
@@ -309,10 +300,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
             const SizedBox(height: 16),
             Text(
               loc.t('welcome.language.description'),
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 48),
@@ -331,7 +319,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
                       child: InkWell(
                         onTap: () {
                           setState(() => _selectedLanguage = entry.key);
-                          ref.read(localeProvider.notifier).state = Locale(entry.key);
+                          ref.read(localeProvider.notifier).state = Locale(
+                            entry.key,
+                          );
                         },
                         borderRadius: BorderRadius.circular(16),
                         child: AnimatedContainer(
@@ -340,27 +330,32 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
                           decoration: BoxDecoration(
                             gradient: isSelected
                                 ? const LinearGradient(
-                                    colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
+                                    colors: [
+                                      Color(0xFF0EA5E9),
+                                      Color(0xFF06B6D4),
+                                    ],
                                   )
                                 : null,
                             color: isSelected
                                 ? null
                                 : (isDarkMode
-                                    ? const Color(0xFF1A1A1A)
-                                    : Colors.white),
+                                      ? const Color(0xFF1A1A1A)
+                                      : Colors.white),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isSelected
                                   ? Colors.transparent
                                   : (isDarkMode
-                                      ? Colors.white.withOpacity(0.1)
-                                      : Colors.black.withOpacity(0.1)),
+                                        ? Colors.white.withOpacity(0.1)
+                                        : Colors.black.withOpacity(0.1)),
                               width: 2,
                             ),
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFF0EA5E9).withOpacity(0.4),
+                                      color: const Color(
+                                        0xFF0EA5E9,
+                                      ).withOpacity(0.4),
                                       blurRadius: 20,
                                       spreadRadius: 2,
                                     ),
@@ -370,8 +365,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
                           child: Row(
                             children: [
                               Icon(
-                                isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                                color: isSelected ? Colors.white : Colors.grey[600],
+                                isSelected
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_unchecked,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.grey[600],
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -382,7 +381,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
                                     fontWeight: FontWeight.w600,
                                     color: isSelected
                                         ? Colors.white
-                                        : (isDarkMode ? Colors.white : Colors.black87),
+                                        : (isDarkMode
+                                              ? Colors.white
+                                              : Colors.black87),
                                   ),
                                 ),
                               ),
@@ -435,10 +436,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
               const SizedBox(height: 16),
               Text(
                 loc.t('welcome.directories.description'),
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
@@ -489,7 +487,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
                   ),
                 ],
               ),
-              child: const Icon(Icons.check_circle, color: Colors.white, size: 72),
+              child: const Icon(
+                Icons.check_circle,
+                color: Colors.white,
+                size: 72,
+              ),
             ),
             const SizedBox(height: 32),
             Text(
@@ -504,10 +506,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
             const SizedBox(height: 16),
             Text(
               loc.t('welcome.complete.description'),
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
           ],
@@ -573,9 +572,15 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF0EA5E9), width: 2),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF0EA5E9),
+                        width: 2,
+                      ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     isDense: true,
                   ),
                   style: const TextStyle(fontSize: 14),
@@ -589,7 +594,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0EA5E9),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -624,7 +632,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
               icon: const Icon(Icons.arrow_back),
               label: Text(loc.t('welcome.actions.back')),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 side: BorderSide(color: Colors.grey[400]!),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -634,10 +645,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
           else
             const SizedBox(),
           Text(
-            loc.t('welcome.step_of', params: {
-              'current': '${_currentStep + 1}',
-              'total': '$_totalSteps',
-            }),
+            loc.t(
+              'welcome.step_of',
+              params: {
+                'current': '${_currentStep + 1}',
+                'total': '$_totalSteps',
+              },
+            ),
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[600],
@@ -646,7 +660,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> with TickerProvid
           ),
           FilledButton.icon(
             onPressed: _nextStep,
-            icon: Icon(_currentStep == _totalSteps - 1 ? Icons.check : Icons.arrow_forward),
+            icon: Icon(
+              _currentStep == _totalSteps - 1
+                  ? Icons.check
+                  : Icons.arrow_forward,
+            ),
             label: Text(
               _currentStep == _totalSteps - 1
                   ? loc.t('welcome.actions.finish')

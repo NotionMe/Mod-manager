@@ -213,103 +213,110 @@ class _CharacterCardsListWidgetState
                       width: AppConstants.characterCardWidth,
                       height: AppConstants.characterCardHeight,
                       decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isHovering
-                          ? const Color(AppConstants.activeModCountColor)
-                          : isSelected
-                          ? const Color(AppConstants.activeModBorderColor)
-                          : Colors.grey.withOpacity(0.3),
-                      width: isHovering
-                          ? AppConstants.characterCardBorderWidthHover
-                          : isSelected
-                          ? AppConstants.characterCardBorderWidthSelected
-                          : AppConstants.characterCardBorderWidth,
-                    ),
-                    boxShadow: isHovering
-                        ? [
-                            BoxShadow(
-                              color: const Color(
-                                AppConstants.activeModCountColor,
-                              ).withOpacity(0.4),
-                              blurRadius: AppConstants.characterCardBlurRadius,
-                              spreadRadius:
-                                  AppConstants.characterCardSpreadRadiusHover,
-                            ),
-                          ]
-                        : isSelected
-                        ? [
-                            BoxShadow(
-                              color: const Color(
-                                AppConstants.activeModBorderColor,
-                              ).withOpacity(0.4),
-                              blurRadius:
-                                  AppConstants.characterCardBlurRadius + 5,
-                              spreadRadius: AppConstants
-                                  .characterCardSpreadRadiusSelected,
-                            ),
-                            BoxShadow(
-                              color: const Color(
-                                AppConstants.activeModBorderColor,
-                              ).withOpacity(0.2),
-                              blurRadius:
-                                  AppConstants.characterCardBlurRadius + 10,
-                              spreadRadius:
-                                  AppConstants
-                                      .characterCardSpreadRadiusSelected +
-                                  2,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: ClipOval(
-                    child: character.id == 'all'
-                        ? Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isHovering
+                              ? const Color(AppConstants.activeModCountColor)
+                              : isSelected
+                              ? const Color(AppConstants.activeModBorderColor)
+                              : Colors.grey.withOpacity(0.3),
+                          width: isHovering
+                              ? AppConstants.characterCardBorderWidthHover
+                              : isSelected
+                              ? AppConstants.characterCardBorderWidthSelected
+                              : AppConstants.characterCardBorderWidth,
+                        ),
+                        boxShadow: isHovering
+                            ? [
+                                BoxShadow(
+                                  color: const Color(
+                                    AppConstants.activeModCountColor,
+                                  ).withOpacity(0.4),
+                                  blurRadius:
+                                      AppConstants.characterCardBlurRadius,
+                                  spreadRadius: AppConstants
+                                      .characterCardSpreadRadiusHover,
+                                ),
+                              ]
+                            : isSelected
+                            ? [
+                                BoxShadow(
+                                  color: const Color(
+                                    AppConstants.activeModBorderColor,
+                                  ).withOpacity(0.4),
+                                  blurRadius:
+                                      AppConstants.characterCardBlurRadius + 5,
+                                  spreadRadius: AppConstants
+                                      .characterCardSpreadRadiusSelected,
+                                ),
+                                BoxShadow(
+                                  color: const Color(
+                                    AppConstants.activeModBorderColor,
+                                  ).withOpacity(0.2),
+                                  blurRadius:
+                                      AppConstants.characterCardBlurRadius + 10,
+                                  spreadRadius:
+                                      AppConstants
+                                          .characterCardSpreadRadiusSelected +
+                                      2,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: ClipOval(
+                        child: character.id == 'all'
+                            ? Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF0EA5E9),
+                                      Color(0xFF06B6D4),
+                                    ],
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.apps,
+                                  size: AppConstants.characterCardWidth * 0.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : character.id == 'favorites'
+                            ? Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFFF97316),
+                                      Color(0xFFFACC15),
+                                    ],
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.star,
+                                  size: AppConstants.characterCardWidth * 0.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : character.iconPath != null
+                            ? Image.asset(
+                                character.iconPath!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Colors.grey.withOpacity(0.2),
+                                  child: Icon(
+                                    Icons.person,
+                                    size: AppConstants.characterCardWidth * 0.5,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                color: Colors.grey.withOpacity(0.2),
+                                child: Icon(
+                                  Icons.person,
+                                  size: AppConstants.characterCardWidth * 0.5,
+                                  color: Colors.grey[600],
+                                ),
                               ),
-                            ),
-                            child: Icon(
-                              Icons.apps,
-                              size: AppConstants.characterCardWidth * 0.5,
-                              color: Colors.white,
-                            ),
-                          )
-                        : character.id == 'favorites'
-                        ? Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFF97316), Color(0xFFFACC15)],
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.star,
-                              size: AppConstants.characterCardWidth * 0.5,
-                              color: Colors.white,
-                            ),
-                          )
-                        : character.iconPath != null
-                        ? Image.asset(
-                            character.iconPath!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: Colors.grey.withOpacity(0.2),
-                              child: Icon(
-                                Icons.person,
-                                size: AppConstants.characterCardWidth * 0.5,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          )
-                        : Container(
-                            color: Colors.grey.withOpacity(0.2),
-                            child: Icon(
-                              Icons.person,
-                              size: AppConstants.characterCardWidth * 0.5,
-                              color: Colors.grey[600],
-                            ),
-                          ),
                       ),
                     ),
                     // Бейдж з кількістю keybinds

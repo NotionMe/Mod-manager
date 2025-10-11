@@ -3,10 +3,7 @@ class KeybindInfo {
   final String section; // Назва секції (напр. keySwap, KeyUP)
   final Map<String, String> keys; // Ключі та їх значення
 
-  KeybindInfo({
-    required this.section,
-    required this.keys,
-  });
+  KeybindInfo({required this.section, required this.keys});
 
   /// Отримує значення клавіші з секції (тільки поле 'key')
   String? get keyValue => keys['key'];
@@ -27,16 +24,10 @@ class KeybindInfo {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'section': section,
-      'keys': keys,
-    };
+    return {'section': section, 'keys': keys};
   }
 
-  KeybindInfo copyWith({
-    String? section,
-    Map<String, String>? keys,
-  }) {
+  KeybindInfo copyWith({String? section, Map<String, String>? keys}) {
     return KeybindInfo(
       section: section ?? this.section,
       keys: keys ?? this.keys,

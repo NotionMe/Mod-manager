@@ -15,6 +15,7 @@ import 'screens/marketplace_screen.dart';
 import 'utils/state_providers.dart';
 import 'services/api_service.dart';
 import 'l10n/app_localizations.dart';
+import 'models/game_profile.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -233,6 +234,10 @@ class _MainScreenState extends ConsumerState<MainScreen>
 
     _logoAnimationController.forward();
     _sidebarAnimationController.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshProfiles();
+    });
   }
 
   @override
@@ -257,12 +262,152 @@ class _MainScreenState extends ConsumerState<MainScreen>
     }
   }
 
+  Future<void> _refreshProfiles() async {
+    try {
+      final profiles = await ApiService.getProfiles();
+      final currentProfile = await ApiService.getCurrentProfile();
+      if (!mounted) return;
+      ref.read(profilesProvider.notifier).state = profiles;
+      ref.read(selectedProfileProvider.notifier).state = currentProfile;
+    } catch (_) {
+      // Ignore profile loading errors
+    }
+  }
+
+  Future<void> _showProfilePicker() async {
+    final loc = context.loc;
+    var profiles = ref.read(profilesProvider);
+
+    if (profiles.isEmpty) {
+      await _refreshProfiles();
+      profiles = ref.read(profilesProvider);
+    }
+
+    if (profiles.isEmpty) {
+      return;
+    }
+
+    final currentProfile = ref.read(selectedProfileProvider);
+    final selectedId = currentProfile?.id;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return SimpleDialog(
+          title: Text(
+            loc.t('profiles.select_title', fallback: 'Select profile'),
+          ),
+          children: profiles
+              .map(
+                (profile) => SimpleDialogOption(
+                  onPressed: () => Navigator.of(dialogContext).pop(profile.id),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          profile.name.isEmpty
+                              ? loc.t('settings.profiles.default_name')
+                              : profile.name,
+                        ),
+                      ),
+                      if (profile.id == selectedId)
+                        const Icon(Icons.check, color: Color(0xFF0EA5E9)),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+
+    if (result != null && result != selectedId) {
+      final success = await ApiService.setActiveProfile(result);
+      if (success) {
+        await _refreshProfiles();
+      }
+    }
+  }
+
+  Widget _buildProfileButton(
+    bool isCollapsed,
+    AppLocalizations loc,
+    GameProfile? profile,
+  ) {
+    final profileName = (profile?.name.isNotEmpty ?? false)
+        ? profile!.name
+        : loc.t('settings.profiles.default_name');
+    final hookLabel = loc.t(
+      'settings.profiles.types.${profile?.hookType ?? 'zzz'}',
+      fallback: (profile?.hookType ?? 'zzz').toUpperCase(),
+    );
+
+    if (isCollapsed) {
+      return Tooltip(
+        message: loc.t('profiles.switch_tooltip', fallback: 'Switch profile'),
+        child: IconButton(
+          icon: const Icon(Icons.switch_account),
+          onPressed: _showProfilePicker,
+        ),
+      );
+    }
+
+    return FilledButton.tonal(
+      onPressed: _showProfilePicker,
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        backgroundColor: const Color(0xFF0EA5E9).withOpacity(0.08),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.switch_account, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  profileName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hookLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey[600]),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentTab = ref.watch(tabIndexProvider);
     final isDarkMode = ref.watch(isDarkModeProvider);
     final isSidebarCollapsed = ref.watch(sidebarCollapsedProvider);
     final loc = context.loc;
+    final currentProfile = ref.watch(selectedProfileProvider);
+    final hookLabel = loc.t(
+      'settings.profiles.types.${currentProfile?.hookType ?? 'zzz'}',
+      fallback: (currentProfile?.hookType ?? 'zzz').toUpperCase(),
+    );
 
     return Scaffold(
       body: Column(
@@ -347,6 +492,17 @@ class _MainScreenState extends ConsumerState<MainScreen>
                           ),
                         ),
                         const SizedBox(height: 16),
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSidebarCollapsed ? 8 : 16,
+                          ),
+                          child: _buildProfileButton(
+                            isSidebarCollapsed,
+                            loc,
+                            currentProfile,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
                         // Logo/Title with gradient
                         if (!isSidebarCollapsed) ...[
                           AnimatedBuilder(
@@ -391,8 +547,9 @@ class _MainScreenState extends ConsumerState<MainScreen>
                             shaderCallback: (bounds) => const LinearGradient(
                               colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
                             ).createShader(bounds),
-                            child: const Text(
-                              'ZZZ',
+                            child: Text(
+                              hookLabel.toUpperCase(),
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w800,
@@ -404,6 +561,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
                           const SizedBox(height: 4),
                           Text(
                             loc.t('app.brand_subtitle'),
+                            textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[500],

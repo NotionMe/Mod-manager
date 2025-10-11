@@ -22,7 +22,12 @@ class PathHelper {
         // Fallback на USERPROFILE\AppData\Roaming
         final userProfile = Platform.environment['USERPROFILE'];
         if (userProfile != null) {
-          _appDataPath = path.join(userProfile, 'AppData', 'Roaming', 'zzz-mod-manager');
+          _appDataPath = path.join(
+            userProfile,
+            'AppData',
+            'Roaming',
+            'zzz-mod-manager',
+          );
         } else {
           throw Exception('Cannot find Windows user directory');
         }
@@ -31,8 +36,9 @@ class PathHelper {
       // Linux: ~/.local/share/zzz-mod-manager
       final homeDir = Platform.environment['HOME'];
       if (homeDir != null) {
-        final xdgDataHome = Platform.environment['XDG_DATA_HOME'] ?? 
-                            path.join(homeDir, '.local', 'share');
+        final xdgDataHome =
+            Platform.environment['XDG_DATA_HOME'] ??
+            path.join(homeDir, '.local', 'share');
         _appDataPath = path.join(xdgDataHome, 'zzz-mod-manager');
       } else {
         throw Exception('Cannot find Linux home directory');
@@ -44,7 +50,7 @@ class PathHelper {
 
   /// Get the path for mod_images directory
   /// This uses user's home directory to ensure write permissions
-  /// Path: 
+  /// Path:
   ///   Windows: %APPDATA%\zzz-mod-manager\mod_images
   ///   Linux: ~/.local/share/zzz-mod-manager/mod_images
   static String getModImagesPath() {
@@ -69,9 +75,14 @@ class PathHelper {
           return _modImagesPath!;
         }
       }
-      
+
       // Last resort fallback
-      _modImagesPath = path.join(Directory.current.path, '..', 'assets', 'mod_images');
+      _modImagesPath = path.join(
+        Directory.current.path,
+        '..',
+        'assets',
+        'mod_images',
+      );
     }
 
     return _modImagesPath!;

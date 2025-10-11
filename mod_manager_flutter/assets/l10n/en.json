@@ -153,6 +153,7 @@
       "generic": "Error: {message}"
     },
     "sections": {
+      "profiles": "Profiles",
       "paths": "Mod directories",
       "language": "Language",
       "auto_tag": "Automatic tagging",
@@ -182,6 +183,23 @@
     },
     "appearance": {
       "dark_mode": "Dark mode"
+    },
+    "profiles": {
+      "select": "Active profile",
+      "add": "Add profile",
+      "remove": "Delete profile",
+      "name": "Profile name",
+      "hook_type": "Hook type",
+      "types": {
+        "zzz": "Zenless Zone Zero",
+        "genshin": "Genshin Impact",
+        "custom": "Custom"
+      },
+      "default_name": "New profile",
+      "create_title": "Create profile",
+      "delete_title": "Delete profile?",
+      "delete_message": "This will remove the profile configuration only. Mods stay intact.",
+      "delete_error": "Unable to delete profile"
     },
     "auto_tag": {
       "title": "Automatic tagging",
@@ -249,8 +267,15 @@
     "en": "English",
     "uk": "Українська"
   },
+  "profiles": {
+    "select_title": "Select profile",
+    "switch_tooltip": "Switch profile"
+  },
   "common": {
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "cancel": "Cancel",
+    "create": "Create",
+    "delete": "Delete"
   },
   "welcome": {
     "title": "Welcome to ZZZ Mod Manager!",

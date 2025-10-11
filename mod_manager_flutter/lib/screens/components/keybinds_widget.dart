@@ -82,7 +82,9 @@ class _KeybindsWidgetState extends State<KeybindsWidget> {
                     ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF6366F1).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10 * widget.scaleFactor),
+                      borderRadius: BorderRadius.circular(
+                        10 * widget.scaleFactor,
+                      ),
                     ),
                     child: Text(
                       '${validKeybinds.length}',
@@ -95,7 +97,9 @@ class _KeybindsWidgetState extends State<KeybindsWidget> {
                   ),
                   const Spacer(),
                   Icon(
-                    _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    _isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     size: 18 * widget.scaleFactor,
                     color: Colors.white.withOpacity(0.6),
                   ),
@@ -114,7 +118,9 @@ class _KeybindsWidgetState extends State<KeybindsWidget> {
               child: Wrap(
                 spacing: 6 * widget.scaleFactor,
                 runSpacing: 6 * widget.scaleFactor,
-                children: validKeybinds.map((keybind) => _buildKeybindChip(keybind)).toList(),
+                children: validKeybinds
+                    .map((keybind) => _buildKeybindChip(keybind))
+                    .toList(),
               ),
             ),
         ],

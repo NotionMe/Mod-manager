@@ -3,24 +3,23 @@ import 'package:path/path.dart' as path;
 
 /// Сервіс для автоматичної відправки F10 для перезавантаження модів у 3DMigoto на Linux
 class F10ReloadService {
-  
   /// Перевіряє чи запущена гра (Zenless Zone Zero через Wine/Proton)
   Future<List<String>> _findGameProcesses() async {
     try {
       final result = await Process.run('ps', ['aux']);
       final processes = <String>[];
-      
+
       if (result.exitCode == 0) {
         final lines = result.stdout.toString().split('\n');
         for (final line in lines) {
-          if (line.toLowerCase().contains('zenless') || 
+          if (line.toLowerCase().contains('zenless') ||
               line.toLowerCase().contains('zzz') ||
               line.contains('ZenlessZoneZero.exe')) {
             processes.add(line.trim());
           }
         }
       }
-      
+
       print('F10ReloadService: Знайдено процесів гри: ${processes.length}');
       return processes;
     } catch (e) {
@@ -42,16 +41,22 @@ class F10ReloadService {
       // Знаходимо вікно гри
       String? windowId;
       final windowNames = ['Zenless', 'ZZZ', 'zenless'];
-      
+
       for (final name in windowNames) {
         try {
           final windowResult = await Process.run('xdotool', [
-            'search', '--name', '--onlyvisible', name
+            'search',
+            '--name',
+            '--onlyvisible',
+            name,
           ]);
-          
-          if (windowResult.exitCode == 0 && windowResult.stdout.toString().trim().isNotEmpty) {
+
+          if (windowResult.exitCode == 0 &&
+              windowResult.stdout.toString().trim().isNotEmpty) {
             windowId = windowResult.stdout.toString().trim().split('\n').first;
-            print('F10ReloadService: Знайдено вікно гри: $name (ID: $windowId)');
+            print(
+              'F10ReloadService: Знайдено вікно гри: $name (ID: $windowId)',
+            );
             break;
           }
         } catch (e) {
@@ -72,7 +77,10 @@ class F10ReloadService {
 
       // Відправляємо F10 до конкретного вікна
       final keyResult = await Process.run('xdotool', [
-        'key', '--window', windowId, 'F10'
+        'key',
+        '--window',
+        windowId,
+        'F10',
       ]);
 
       if (keyResult.exitCode == 0) {
@@ -113,11 +121,18 @@ class F10ReloadService {
         for (final name in windowNames) {
           try {
             final result = await Process.run('xdotool', [
-              'search', '--name', name
+              'search',
+              '--name',
+              name,
             ]);
-            
-            if (result.exitCode == 0 && result.stdout.toString().trim().isNotEmpty) {
-              final windowId = result.stdout.toString().trim().split('\n').first;
+
+            if (result.exitCode == 0 &&
+                result.stdout.toString().trim().isNotEmpty) {
+              final windowId = result.stdout
+                  .toString()
+                  .trim()
+                  .split('\n')
+                  .first;
               await Process.run('xdotool', ['windowactivate', windowId]);
               print('F10ReloadService: Активовано вікно через xdotool: $name');
               return;
@@ -144,20 +159,22 @@ class F10ReloadService {
 
       // Спробуємо активувати вікно гри спочатку
       await _focusGameWindow();
-      
+
       // Невелика затримка для фокусування
       await Future.delayed(const Duration(milliseconds: 200));
 
       // Відправляємо F10 кілька разів для надійності
       for (int i = 0; i < 2; i++) {
         final keyResult = await Process.run('ydotool', [
-          'key', '67:1', '67:0'  // F10 key code для ydotool
+          'key', '67:1', '67:0', // F10 key code для ydotool
         ]);
-        
+
         if (keyResult.exitCode != 0) {
-          print('F10ReloadService: Помилка відправки F10 через ydotool (спроба ${i + 1})');
+          print(
+            'F10ReloadService: Помилка відправки F10 через ydotool (спроба ${i + 1})',
+          );
         }
-        
+
         if (i < 1) {
           await Future.delayed(const Duration(milliseconds: 100));
         }
@@ -176,15 +193,19 @@ class F10ReloadService {
     try {
       final signalPath = path.join(modsPath, '.reload_signal');
       final timestampPath = path.join(modsPath, '.mod_timestamp');
-      
+
       // Створюємо сигнальний файл
       final signalFile = File(signalPath);
-      await signalFile.writeAsString(DateTime.now().millisecondsSinceEpoch.toString());
-      
+      await signalFile.writeAsString(
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+
       // Оновлюємо timestamp файл
       final timestampFile = File(timestampPath);
-      await timestampFile.writeAsString(DateTime.now().millisecondsSinceEpoch.toString());
-      
+      await timestampFile.writeAsString(
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+
       print('F10ReloadService: Створено сигнальні файли');
       return true;
     } catch (e) {
@@ -198,8 +219,9 @@ class F10ReloadService {
     try {
       final iniPath = path.join(modsPath, 'mod_reload_trigger.ini');
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      
-      final iniContent = '''
+
+      final iniContent =
+          '''
 ; Автоматично створений файл для перезавантаження модів
 ; Створено: ${DateTime.now().toIso8601String()}
 
@@ -227,9 +249,9 @@ endif
 
       final file = File(iniPath);
       await file.writeAsString(iniContent);
-      
+
       print('F10ReloadService: Створено INI файл: $iniPath');
-      
+
       // Видаляємо файл через 10 секунд
       Future.delayed(const Duration(seconds: 10), () async {
         try {
@@ -241,7 +263,7 @@ endif
           print('F10ReloadService: Помилка видалення INI файлу: $e');
         }
       });
-      
+
       return true;
     } catch (e) {
       print('F10ReloadService: Помилка створення INI файлу: $e');
@@ -272,7 +294,7 @@ endif
           }
         }
       }
-      
+
       return true;
     } catch (e) {
       print('F10ReloadService: Помилка перезапуску Wine процесу: $e');
@@ -285,13 +307,13 @@ endif
     final sessionType = Platform.environment['XDG_SESSION_TYPE'];
     final waylandDisplay = Platform.environment['WAYLAND_DISPLAY'];
     final display = Platform.environment['DISPLAY'];
-    
+
     if (sessionType == 'wayland' || waylandDisplay != null) {
       return 'wayland';
     } else if (display != null) {
       return 'x11';
     }
-    
+
     return 'unknown';
   }
 
@@ -299,11 +321,11 @@ endif
   Future<bool> _callPythonScript(String modsPath) async {
     try {
       final scriptPath = path.join(
-        Directory.current.path, 
-        'scripts', 
-        'f10_reload.py'
+        Directory.current.path,
+        'scripts',
+        'f10_reload.py',
       );
-      
+
       final scriptFile = File(scriptPath);
       if (!await scriptFile.exists()) {
         print('F10ReloadService: Python скрипт не знайдено: $scriptPath');
@@ -311,12 +333,14 @@ endif
       }
 
       final result = await Process.run('python3', [scriptPath, modsPath]);
-      
+
       if (result.exitCode == 0) {
         print('F10ReloadService: Python скрипт виконано успішно');
         return true;
       } else {
-        print('F10ReloadService: Python скрипт завершився з помилкою: ${result.stderr}');
+        print(
+          'F10ReloadService: Python скрипт завершився з помилкою: ${result.stderr}',
+        );
         return false;
       }
     } catch (e) {
@@ -334,7 +358,7 @@ endif
 
     print('F10ReloadService: Починаємо перезавантаження модів на Linux...');
     print('F10ReloadService: Шлях до модів: $modsPath');
-    
+
     final displayServer = _getDisplayServer();
     print('F10ReloadService: Виявлений дисплейний сервер: $displayServer');
 
@@ -370,7 +394,9 @@ endif
 
     // Метод 5: Використання Python скрипту (крайній резерв)
     if (!success) {
-      print('F10ReloadService: Використовуємо Python скрипт як резервний метод...');
+      print(
+        'F10ReloadService: Використовуємо Python скрипт як резервний метод...',
+      );
       if (await _callPythonScript(modsPath)) {
         success = true;
       }
@@ -388,9 +414,9 @@ endif
   /// Встановлює необхідні залежності для роботи сервісу
   Future<void> installDependencies() async {
     print('F10ReloadService: Перевірка залежностей...');
-    
+
     final displayServer = _getDisplayServer();
-    
+
     if (displayServer == 'x11') {
       final result = await Process.run('which', ['xdotool']);
       if (result.exitCode != 0) {
@@ -427,7 +453,9 @@ endif
     print('   sudo usermod -a -G input \$USER');
     print('   sudo systemctl enable --now ydotool.service');
     print('5. Запустіть гру через Wine/Proton/XXMI Launcher');
-    print('6. Використовуйте цей сервіс для автоматичного перезавантаження модів');
+    print(
+      '6. Використовуйте цей сервіс для автоматичного перезавантаження модів',
+    );
     print('');
     print('ВАЖЛИВО: Вікно гри має бути видимим (не згорнутим) для ydotool!');
     print('');

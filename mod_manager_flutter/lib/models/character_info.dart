@@ -66,8 +66,8 @@ class ModInfo {
       isFavorite: json['is_favorite'] as bool? ?? false,
       keybinds: json['keybinds'] != null
           ? (json['keybinds'] as List)
-              .map((e) => KeybindInfo.fromJson(e as Map<String, dynamic>))
-              .toList()
+                .map((e) => KeybindInfo.fromJson(e as Map<String, dynamic>))
+                .toList()
           : null,
     );
   }

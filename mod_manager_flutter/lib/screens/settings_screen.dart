@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../core/constants.dart';
+import '../models/game_profile.dart';
 import '../services/api_service.dart';
 import '../utils/state_providers.dart';
 import '../utils/zzz_characters.dart';
+import '../utils/genshin_characters.dart';
 import '../l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -15,9 +17,16 @@ class SettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProviderStateMixin {
+class _SettingsScreenState extends ConsumerState<SettingsScreen>
+    with TickerProviderStateMixin {
   final _modsPathController = TextEditingController();
   final _saveModsPathController = TextEditingController();
+  final _profileNameController = TextEditingController();
+  List<GameProfile> _profiles = [];
+  String? _selectedProfileId;
+  String _selectedHookType = 'zzz';
+  bool _isSwitchingProfile = false;
+  static const List<String> _hookTypeOptions = ['zzz', 'genshin', 'custom'];
   bool isLoading = false;
   String _selectedLanguage = 'en';
   bool _isUpdatingLanguage = false;
@@ -31,14 +40,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    _loadingAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _loadingAnimationController,
-      curve: Curves.easeInOut,
-    ));
+    _loadingAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _loadingAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
     loadConfig();
+  }
+
+  void _applyProfileState(List<GameProfile> profiles, String? selectedId) {
+    ref.read(profilesProvider.notifier).state = profiles;
+    GameProfile? selected;
+    if (profiles.isNotEmpty) {
+      selected = profiles.firstWhere(
+        (profile) => profile.id == selectedId,
+        orElse: () => profiles.first,
+      );
+    }
+    ref.read(selectedProfileProvider.notifier).state = selected;
   }
 
   @override
@@ -46,21 +66,71 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
     _loadingAnimationController.dispose();
     _modsPathController.dispose();
     _saveModsPathController.dispose();
+    _profileNameController.dispose();
     super.dispose();
   }
 
-  Future<void> loadConfig() async {
-    setState(() => isLoading = true);
+  Future<void> loadConfig({bool showLoader = true}) async {
+    if (showLoader) {
+      setState(() => isLoading = true);
+    }
+
     try {
       final config = await ApiService.getConfig();
-      setState(() {
-        _modsPathController.text = config['mods_path'] ?? '';
-        _saveModsPathController.text = config['save_mods_path'] ?? '';
-        _selectedLanguage = config['language'] ?? 'en';
-        isLoading = false;
-      });
+      final profilesData = config['profiles'];
+      var profiles = <GameProfile>[];
+
+      if (profilesData is List) {
+        profiles = profilesData
+            .whereType<Map>()
+            .map(
+              (raw) =>
+                  GameProfile.fromJson(Map<String, dynamic>.from(raw as Map)),
+            )
+            .toList();
+      }
+
+      if (profiles.isEmpty) {
+        await ApiService.createProfile(
+          name: 'Zenless Zone Zero',
+          hookType: 'zzz',
+        );
+        await loadConfig(showLoader: showLoader);
+        return;
+      }
+
+      final selectedId = config['selected_profile_id'] as String?;
+      final selectedProfile = profiles.firstWhere(
+        (profile) => profile.id == selectedId,
+        orElse: () => profiles.first,
+      );
+
+      if (mounted) {
+        setState(() {
+          _profiles = profiles;
+          _selectedProfileId = selectedProfile.id;
+          _profileNameController.text = selectedProfile.name;
+          _selectedHookType = selectedProfile.hookType.isEmpty
+              ? 'custom'
+              : selectedProfile.hookType;
+          _modsPathController.text = selectedProfile.modsPath;
+          _saveModsPathController.text = selectedProfile.saveModsPath;
+          _selectedLanguage = config['language'] as String? ?? 'en';
+        });
+      }
+
+      _applyProfileState(profiles, selectedProfile.id);
     } catch (e) {
-      setState(() => isLoading = false);
+      // Ignore errors but reset loading state
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (showLoader) {
+            isLoading = false;
+          }
+          _isSwitchingProfile = false;
+        });
+      }
     }
   }
 
@@ -80,11 +150,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
 
   Future<void> saveConfig() async {
     final loc = context.loc;
+    final profileId = _selectedProfileId;
+    if (profileId == null) {
+      return;
+    }
+
+    final trimmedName = _profileNameController.text.trim();
+    final profileName = trimmedName.isEmpty
+        ? loc.t('settings.profiles.default_name')
+        : trimmedName;
+
     try {
-      await ApiService.updateConfig(
+      final updated = await ApiService.updateProfile(
+        profileId: profileId,
+        name: profileName,
+        hookType: _selectedHookType,
         modsPath: _modsPathController.text,
         saveModsPath: _saveModsPathController.text,
       );
+
+      if (!updated) {
+        throw Exception('Failed to update profile');
+      }
+
+      await loadConfig(showLoader: false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -108,6 +197,237 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
     }
   }
 
+  Future<void> _onProfileSelected(String? profileId) async {
+    if (profileId == null ||
+        profileId == _selectedProfileId ||
+        _isSwitchingProfile) {
+      return;
+    }
+
+    setState(() => _isSwitchingProfile = true);
+
+    final success = await ApiService.setActiveProfile(profileId);
+    if (!success) {
+      if (mounted) {
+        setState(() => _isSwitchingProfile = false);
+      }
+      return;
+    }
+
+    await loadConfig(showLoader: false);
+  }
+
+  Future<void> _showCreateProfileDialog() async {
+    final loc = context.loc;
+    final nameController = TextEditingController();
+    var hookType = 'zzz';
+
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(loc.t('settings.profiles.create_title')),
+          content: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: loc.t('settings.profiles.name'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: hookType,
+                    decoration: InputDecoration(
+                      labelText: loc.t('settings.profiles.hook_type'),
+                    ),
+                    items: _hookTypeOptions
+                        .map(
+                          (key) => DropdownMenuItem<String>(
+                            value: key,
+                            child: Text(_hookTypeLabel(loc, key)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() => hookType = value);
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(loc.t('common.cancel', fallback: 'Cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(loc.t('common.create', fallback: 'Create')),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (created == true) {
+      final trimmedName = nameController.text.trim();
+      final profileName = trimmedName.isEmpty
+          ? loc.t('settings.profiles.default_name')
+          : trimmedName;
+
+      await ApiService.createProfile(name: profileName, hookType: hookType);
+
+      await loadConfig(showLoader: false);
+    }
+
+    nameController.dispose();
+  }
+
+  Future<void> _deleteCurrentProfile() async {
+    final loc = context.loc;
+    final profileId = _selectedProfileId;
+    if (profileId == null || _profiles.length <= 1) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(loc.t('settings.profiles.delete_title')),
+          content: Text(loc.t('settings.profiles.delete_message')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(loc.t('common.cancel', fallback: 'Cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              child: Text(loc.t('common.delete', fallback: 'Delete')),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      final success = await ApiService.deleteProfile(profileId);
+      if (!success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(loc.t('settings.profiles.delete_error')),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      await loadConfig(showLoader: false);
+    }
+  }
+
+  String _hookTypeLabel(AppLocalizations loc, String key) {
+    return loc.t('settings.profiles.types.$key', fallback: key.toUpperCase());
+  }
+
+  Widget _buildProfilesSection(AppLocalizations loc, bool isDarkMode) {
+    final currentProfileId =
+        _selectedProfileId ??
+        (_profiles.isNotEmpty ? _profiles.first.id : null);
+
+    final hookTypes = List<String>.from(_hookTypeOptions);
+    if (!hookTypes.contains(_selectedHookType)) {
+      hookTypes.add(_selectedHookType);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: currentProfileId,
+                items: _profiles
+                    .map(
+                      (profile) => DropdownMenuItem<String>(
+                        value: profile.id,
+                        child: Text(
+                          profile.name.isEmpty
+                              ? loc.t('settings.profiles.default_name')
+                              : profile.name,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (_isSwitchingProfile || _profiles.isEmpty)
+                    ? null
+                    : (value) => _onProfileSelected(value),
+                decoration: InputDecoration(
+                  labelText: loc.t('settings.profiles.select'),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: loc.t('settings.profiles.add'),
+              onPressed: _isSwitchingProfile ? null : _showCreateProfileDialog,
+            ),
+            if (_profiles.length > 1) ...[
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: loc.t('settings.profiles.remove'),
+                onPressed: _isSwitchingProfile ? null : _deleteCurrentProfile,
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _profileNameController,
+          enabled: !_isSwitchingProfile,
+          decoration: InputDecoration(
+            labelText: loc.t('settings.profiles.name'),
+          ),
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          value: _selectedHookType,
+          decoration: InputDecoration(
+            labelText: loc.t('settings.profiles.hook_type'),
+          ),
+          items: hookTypes
+              .map(
+                (key) => DropdownMenuItem<String>(
+                  value: key,
+                  child: Text(_hookTypeLabel(loc, key)),
+                ),
+              )
+              .toList(),
+          onChanged: _isSwitchingProfile
+              ? null
+              : (value) {
+                  if (value != null) {
+                    setState(() => _selectedHookType = value);
+                  }
+                },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = context.loc;
@@ -122,7 +442,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
             color: Theme.of(context).cardColor,
             border: Border(
               bottom: BorderSide(
-                color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                color: isDarkMode
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.black.withOpacity(0.05),
               ),
             ),
           ),
@@ -154,12 +476,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFF0EA5E9), Color(0xFF06B6D4)],
+                                  colors: [
+                                    Color(0xFF0EA5E9),
+                                    Color(0xFF06B6D4),
+                                  ],
                                 ),
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF0EA5E9).withOpacity(0.3),
+                                    color: const Color(
+                                      0xFF0EA5E9,
+                                    ).withOpacity(0.3),
                                     blurRadius: 20,
                                     spreadRadius: 5,
                                   ),
@@ -167,7 +494,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                               ),
                               child: const CircularProgressIndicator(
                                 strokeWidth: 3,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             ),
                           );
@@ -205,6 +534,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                           child: FadeInAnimation(child: widget),
                         ),
                         children: [
+                          _buildSectionTitle(
+                            loc.t('settings.sections.profiles'),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildProfilesSection(loc, isDarkMode),
+                          const SizedBox(height: 32),
                           // Paths Section
                           _buildSectionTitle(loc.t('settings.sections.paths')),
                           const SizedBox(height: 16),
@@ -227,29 +562,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                           ),
                           const SizedBox(height: 32),
                           // Language Section
-                          _buildSectionTitle(loc.t('settings.sections.language')),
+                          _buildSectionTitle(
+                            loc.t('settings.sections.language'),
+                          ),
                           const SizedBox(height: 16),
                           _buildLanguageSelector(loc, isDarkMode),
                           const SizedBox(height: 32),
                           // Auto-Tagging Section
-                          _buildSectionTitle(loc.t('settings.sections.auto_tag')),
+                          _buildSectionTitle(
+                            loc.t('settings.sections.auto_tag'),
+                          ),
                           const SizedBox(height: 16),
                           _buildAutoTagSection(loc, isDarkMode),
                           const SizedBox(height: 32),
                           // F10 Reload Section
-                          _buildSectionTitle(loc.t('settings.sections.auto_f10')),
+                          _buildSectionTitle(
+                            loc.t('settings.sections.auto_f10'),
+                          ),
                           const SizedBox(height: 16),
                           _buildF10Section(loc, isDarkMode),
                           const SizedBox(height: 32),
                           // Appearance Section
-                          _buildSectionTitle(loc.t('settings.sections.appearance')),
+                          _buildSectionTitle(
+                            loc.t('settings.sections.appearance'),
+                          ),
                           const SizedBox(height: 16),
                           _buildSettingRow(
                             label: loc.t('settings.appearance.dark_mode'),
                             trailing: Switch(
                               value: isDarkMode,
                               onChanged: (value) {
-                                ref.read(isDarkModeProvider.notifier).state = value;
+                                ref.read(isDarkModeProvider.notifier).state =
+                                    value;
                               },
                               activeColor: const Color(0xFF0EA5E9),
                             ),
@@ -262,10 +606,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                             child: FilledButton.icon(
                               onPressed: saveConfig,
                               icon: const Icon(Icons.save_outlined, size: 18),
-                              label: Text(loc.t('settings.actions.save_configuration')),
+                              label: Text(
+                                loc.t('settings.actions.save_configuration'),
+                              ),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF0EA5E9),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -354,7 +702,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
     );
   }
 
-  Future<void> _changeLanguage(String? languageCode, AppLocalizations loc) async {
+  Future<void> _changeLanguage(
+    String? languageCode,
+    AppLocalizations loc,
+  ) async {
     if (languageCode == null || languageCode == _selectedLanguage) {
       return;
     }
@@ -388,10 +739,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              errorLoc.t(
-                'settings.language.error',
-                params: {'message': '$e'},
-              ),
+              errorLoc.t('settings.language.error', params: {'message': '$e'}),
             ),
             backgroundColor: Colors.red,
           ),
@@ -454,18 +802,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
             ),
           ),
           const SizedBox(height: 16),
-          _buildRequirement('✓', loc.t('settings.auto_tag.import_hint'), Colors.green),
+          _buildRequirement(
+            '✓',
+            loc.t('settings.auto_tag.import_hint'),
+            Colors.green,
+          ),
           const SizedBox(height: 8),
           _buildRequirement(
             '✓',
             loc.t(
               'settings.auto_tag.characters_supported',
-              params: {'count': '${zzzCharactersData.length}'},
+              params: {
+                'count': _selectedHookType == 'genshin'
+                    ? '${genshinCharactersData.length}'
+                    : '${zzzCharactersData.length}',
+              },
             ),
             Colors.green,
           ),
           const SizedBox(height: 8),
-          _buildRequirement('✓', loc.t('settings.auto_tag.naming_hint'), Colors.blue),
+          _buildRequirement(
+            '✓',
+            loc.t('settings.auto_tag.naming_hint'),
+            Colors.blue,
+          ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
@@ -487,10 +847,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                 Expanded(
                   child: Text(
                     loc.t('settings.auto_tag.example'),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                    ),
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                   ),
                 ),
               ],
@@ -597,10 +954,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
               : loc.t('settings.auto_tag.tag_plural');
           final summaryText = loc.t(
             'settings.auto_tag.summary',
-            params: {
-              'count': '${autoTags.length}',
-              'plural': tagLabel,
-            },
+            params: {'count': '${autoTags.length}', 'plural': tagLabel},
           );
 
           showDialog(
@@ -608,7 +962,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
             builder: (context) => AlertDialog(
               title: Row(
                 children: [
-                  const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6), size: 28),
+                  const Icon(
+                    Icons.auto_awesome,
+                    color: Color(0xFF8B5CF6),
+                    size: 28,
+                  ),
                   const SizedBox(width: 8),
                   Text(loc.t('settings.auto_tag.success_title')),
                 ],
@@ -656,7 +1014,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                           ],
                         ),
                         const SizedBox(height: 8),
-                        ...autoTags.entries.take(5).map(
+                        ...autoTags.entries
+                            .take(5)
+                            .map(
                               (entry) => Padding(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 2,
@@ -844,10 +1204,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
         Expanded(
           child: Text(
             text,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
           ),
         ),
       ],
@@ -856,16 +1213,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
 
   Widget _buildAutoF10Status(AppLocalizations loc, bool isDarkMode) {
     final autoF10Enabled = ref.watch(autoF10ReloadProvider);
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: autoF10Enabled 
+        color: autoF10Enabled
             ? const Color(0xFF10B981).withOpacity(0.1)
             : const Color(0xFFEF4444).withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: autoF10Enabled 
+          color: autoF10Enabled
               ? const Color(0xFF10B981).withOpacity(0.3)
               : const Color(0xFFEF4444).withOpacity(0.3),
         ),
@@ -876,13 +1233,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: autoF10Enabled 
+              color: autoF10Enabled
                   ? const Color(0xFF10B981)
                   : const Color(0xFFEF4444),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: (autoF10Enabled ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withOpacity(0.4),
+                  color:
+                      (autoF10Enabled
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFEF4444))
+                          .withOpacity(0.4),
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),
@@ -909,7 +1270,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  autoF10Enabled 
+                  autoF10Enabled
                       ? loc.t('settings.auto_f10.enabled')
                       : loc.t('settings.auto_f10.disabled'),
                   style: TextStyle(
@@ -937,7 +1298,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
   void _installF10Dependencies() async {
     final modManagerService = await ref.read(modManagerServiceProvider.future);
     await modManagerService.installF10Dependencies();
-    
+
     if (mounted) {
       final loc = context.loc;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1001,7 +1362,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                   ),
                   child: Text(
                     loc.t('settings.auto_f10.instructions.step3_code'),
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1018,7 +1382,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                   ),
                   child: Text(
                     loc.t('settings.auto_f10.instructions.step4_code'),
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1038,7 +1405,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              loc.t('settings.auto_f10.instructions.warning_title'),
+                              loc.t(
+                                'settings.auto_f10.instructions.warning_title',
+                              ),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.orange[900],
@@ -1046,7 +1415,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              loc.t('settings.auto_f10.instructions.warning_body'),
+                              loc.t(
+                                'settings.auto_f10.instructions.warning_body',
+                              ),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.orange[900],
@@ -1064,11 +1435,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                Text(loc.t('settings.auto_f10.instructions.workflow_step1'), style: const TextStyle(fontSize: 13)),
-                Text(loc.t('settings.auto_f10.instructions.workflow_step2'), style: const TextStyle(fontSize: 13)),
-                Text(loc.t('settings.auto_f10.instructions.workflow_step3'), style: const TextStyle(fontSize: 13)),
-                Text(loc.t('settings.auto_f10.instructions.workflow_step4'), style: const TextStyle(fontSize: 13)),
-                Text(loc.t('settings.auto_f10.instructions.workflow_step5'), style: const TextStyle(fontSize: 13)),
+                Text(
+                  loc.t('settings.auto_f10.instructions.workflow_step1'),
+                  style: const TextStyle(fontSize: 13),
+                ),
+                Text(
+                  loc.t('settings.auto_f10.instructions.workflow_step2'),
+                  style: const TextStyle(fontSize: 13),
+                ),
+                Text(
+                  loc.t('settings.auto_f10.instructions.workflow_step3'),
+                  style: const TextStyle(fontSize: 13),
+                ),
+                Text(
+                  loc.t('settings.auto_f10.instructions.workflow_step4'),
+                  style: const TextStyle(fontSize: 13),
+                ),
+                Text(
+                  loc.t('settings.auto_f10.instructions.workflow_step5'),
+                  style: const TextStyle(fontSize: 13),
+                ),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -1138,20 +1524,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(
-                      color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+                      color: isDarkMode
+                          ? Colors.white.withOpacity(0.1)
+                          : Colors.black.withOpacity(0.1),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(
-                      color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+                      color: isDarkMode
+                          ? Colors.white.withOpacity(0.1)
+                          : Colors.black.withOpacity(0.1),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: Color(0xFF0EA5E9)),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                   isDense: true,
                 ),
                 style: const TextStyle(fontSize: 13),
@@ -1163,7 +1556,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
               icon: const Icon(Icons.folder_outlined, size: 18),
               label: Text(loc.t('settings.paths.browse')),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1186,7 +1582,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with TickerProv
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+          color: isDarkMode
+              ? Colors.white.withOpacity(0.1)
+              : Colors.black.withOpacity(0.05),
         ),
       ),
       child: Row(

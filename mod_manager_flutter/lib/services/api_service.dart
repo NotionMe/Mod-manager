@@ -3,6 +3,7 @@ import 'package:mod_manager_flutter/utils/state_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/character_info.dart';
+import '../models/game_profile.dart';
 import 'config_service.dart';
 import 'mod_manager_service.dart';
 
@@ -22,9 +23,7 @@ class ApiService {
     if (container != null) {
       _container = container;
       final localeCode = _configService?.language ?? 'en';
-      _container!
-          .read(localeProvider.notifier)
-          .state = Locale(localeCode);
+      _container!.read(localeProvider.notifier).state = Locale(localeCode);
     }
 
     if (_modManager == null) {
@@ -52,22 +51,22 @@ class ApiService {
 
   /// Активує скін для персонажа, автоматично деактивуючи інші скіни цього персонажа
   static Future<bool> toggleModForCharacter(
-    String modId, 
-    String characterId, 
-    List<ModInfo> characterSkins, 
-    {bool multiMode = false}
-  ) async {
+    String modId,
+    String characterId,
+    List<ModInfo> characterSkins, {
+    bool multiMode = false,
+  }) async {
     try {
       await initialize();
-      
+
       // Знаходимо поточний мод
       final currentMod = characterSkins.firstWhere((mod) => mod.id == modId);
-      
+
       // Якщо мод вже активний, просто деактивуємо його
       if (currentMod.isActive) {
         return await _modManager!.deactivateMod(modId);
       }
-      
+
       // У режимі Single - деактивуємо всі інші активні скіни
       if (!multiMode) {
         for (final skin in characterSkins) {
@@ -77,7 +76,7 @@ class ApiService {
         }
       }
       // У режимі Multi - просто додаємо до активних
-      
+
       // Активуємо новий скін
       return await _modManager!.activateMod(modId);
     } catch (e) {
@@ -104,13 +103,17 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, String>> getConfig() async {
+  static Future<Map<String, dynamic>> getConfig() async {
     try {
       await initialize();
       return {
         'mods_path': _configService!.modsPath ?? '',
         'save_mods_path': _configService!.saveModsPath ?? '',
         'language': _configService!.language,
+        'selected_profile_id': _configService!.selectedProfileId,
+        'profiles': _configService!.profiles
+            .map((profile) => profile.toJson())
+            .toList(),
       };
     } catch (e) {
       throw Exception('Помилка отримання конфігурації: $e');
@@ -134,6 +137,60 @@ class ApiService {
     } catch (e) {
       throw Exception('Помилка оновлення конфігурації: $e');
     }
+  }
+
+  static Future<List<GameProfile>> getProfiles() async {
+    await initialize();
+    return _configService!.profiles;
+  }
+
+  static Future<GameProfile> getCurrentProfile() async {
+    await initialize();
+    return _configService!.currentProfile;
+  }
+
+  static Future<GameProfile> createProfile({
+    required String name,
+    String hookType = 'custom',
+    String modsPath = '',
+    String saveModsPath = '',
+    bool selectAfterCreate = true,
+  }) async {
+    await initialize();
+    return _configService!.createProfile(
+      name: name,
+      hookType: hookType,
+      modsPath: modsPath,
+      saveModsPath: saveModsPath,
+      selectAfterCreate: selectAfterCreate,
+    );
+  }
+
+  static Future<bool> updateProfile({
+    required String profileId,
+    String? name,
+    String? hookType,
+    String? modsPath,
+    String? saveModsPath,
+  }) async {
+    await initialize();
+    return _configService!.updateProfile(
+      profileId: profileId,
+      name: name,
+      hookType: hookType,
+      modsPath: modsPath,
+      saveModsPath: saveModsPath,
+    );
+  }
+
+  static Future<bool> deleteProfile(String profileId) async {
+    await initialize();
+    return _configService!.deleteProfile(profileId);
+  }
+
+  static Future<bool> setActiveProfile(String profileId) async {
+    await initialize();
+    return _configService!.setSelectedProfile(profileId);
   }
 
   static Future<bool> updateMod(ModInfo mod) async {

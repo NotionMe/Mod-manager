@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/character_info.dart';
+import '../models/game_profile.dart';
 import '../services/api_service.dart';
 import '../services/mod_manager_service.dart';
 
 // API Service Provider
-final modManagerServiceProvider = FutureProvider<ModManagerService>((ref) async {
+final modManagerServiceProvider = FutureProvider<ModManagerService>((
+  ref,
+) async {
   return await ApiService.getModManagerService();
 });
 
@@ -23,6 +26,10 @@ final selectedCharacterIndexProvider = StateProvider<int>((ref) => 0);
 
 // Current mods list (all mods)
 final modsProvider = StateProvider<List<ModInfo>>((ref) => []);
+
+// Profiles
+final profilesProvider = StateProvider<List<GameProfile>>((ref) => []);
+final selectedProfileProvider = StateProvider<GameProfile?>((ref) => null);
 
 // Search query provider
 final searchQueryProvider = StateProvider<String>((ref) => '');
@@ -48,7 +55,9 @@ final currentCharacterSkinsProvider = Provider<List<ModInfo>>((ref) {
   final characters = ref.watch(charactersProvider);
   final selectedIndex = ref.watch(selectedCharacterIndexProvider);
 
-  if (characters.isEmpty || selectedIndex < 0 || selectedIndex >= characters.length) {
+  if (characters.isEmpty ||
+      selectedIndex < 0 ||
+      selectedIndex >= characters.length) {
     return const [];
   }
 
@@ -69,7 +78,9 @@ final localeProvider = StateProvider<Locale>((ref) => const Locale('en'));
 // Activation mode: single (один скін) або multi (кілька скінів)
 enum ActivationMode { single, multi }
 
-final activationModeProvider = StateProvider<ActivationMode>((ref) => ActivationMode.single);
+final activationModeProvider = StateProvider<ActivationMode>(
+  (ref) => ActivationMode.single,
+);
 
 // Sidebar collapsed state
 final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);

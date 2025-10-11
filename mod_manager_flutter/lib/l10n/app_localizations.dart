@@ -8,17 +8,24 @@ class AppLocalizations {
 
   AppLocalizations(this.locale);
 
-  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
 
   static AppLocalizations of(BuildContext context) {
-    final AppLocalizations? result = Localizations.of<AppLocalizations>(context, AppLocalizations);
+    final AppLocalizations? result = Localizations.of<AppLocalizations>(
+      context,
+      AppLocalizations,
+    );
     assert(result != null, 'AppLocalizations has not been initialized.');
     return result!;
   }
 
   Future<void> load() async {
-    final jsonString = await rootBundle.loadString('assets/l10n/${locale.languageCode}.json');
-    final Map<String, dynamic> jsonMap = json.decode(jsonString) as Map<String, dynamic>;
+    final jsonString = await rootBundle.loadString(
+      'assets/l10n/${locale.languageCode}.json',
+    );
+    final Map<String, dynamic> jsonMap =
+        json.decode(jsonString) as Map<String, dynamic>;
     _localizedValues = jsonMap;
   }
 
@@ -48,11 +55,13 @@ class AppLocalizations {
   }
 }
 
-class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
-  bool isSupported(Locale locale) => const ['en', 'uk'].contains(locale.languageCode);
+  bool isSupported(Locale locale) =>
+      const ['en', 'uk'].contains(locale.languageCode);
 
   @override
   Future<AppLocalizations> load(Locale locale) async {

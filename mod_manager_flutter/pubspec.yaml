@@ -80,6 +80,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/characters/
+    - assets/genshin/
     - assets/mod_images/
     - assets/icon.png
     - assets/l10n/

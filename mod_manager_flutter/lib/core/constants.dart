@@ -56,7 +56,9 @@ class AppConstants {
 
   // Debounce delays
   static const Duration modToggleDebounceDelay = Duration(milliseconds: 200);
-  static const Duration characterSelectionDebounceDelay = Duration(milliseconds: 100);
+  static const Duration characterSelectionDebounceDelay = Duration(
+    milliseconds: 100,
+  );
   static const Duration modeSwitchDebounceDelay = Duration(milliseconds: 100);
 
   // Layout Spacing

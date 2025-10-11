@@ -5,6 +5,7 @@ import '../models/character_info.dart';
 import '../models/keybind_info.dart';
 import '../core/constants.dart';
 import '../utils/state_providers.dart';
+import '../utils/genshin_characters.dart';
 import 'config_service.dart';
 import 'platform_service.dart';
 import 'platform_service_factory.dart';
@@ -18,8 +19,8 @@ class ModManagerService {
   final IniParserService _iniParser;
 
   ModManagerService(this._configService, this._container)
-      : _platformService = PlatformServiceFactory.getInstance(),
-        _iniParser = IniParserService();
+    : _platformService = PlatformServiceFactory.getInstance(),
+      _iniParser = IniParserService();
 
   String? get modsPath => _configService.modsPath;
   String? get saveModsPath => _configService.saveModsPath;
@@ -29,7 +30,10 @@ class ModManagerService {
     final saveMods = saveModsPath;
 
     if (mods == null || mods.isEmpty || saveMods == null || saveMods.isEmpty) {
-      return (false, 'Шляхи не налаштовані. Будь ласка, налаштуйте їх у Налаштуваннях.');
+      return (
+        false,
+        'Шляхи не налаштовані. Будь ласка, налаштуйте їх у Налаштуваннях.',
+      );
     }
 
     final modsDir = Directory(mods);
@@ -117,7 +121,7 @@ class ModManagerService {
       await for (final entity in saveModsDir.list()) {
         if (entity is Link) {
           final linkName = path.basename(entity.path);
-          
+
           // Якщо мод більше не існує в папці модів - видаляємо символічне посилання
           if (!validModNames.contains(linkName)) {
             try {
@@ -139,7 +143,9 @@ class ModManagerService {
       if (saveModsPath == null) return false;
 
       final linkPath = path.join(saveModsPath!, modName);
-      final exists = await FileSystemEntity.type(linkPath) != FileSystemEntityType.notFound;
+      final exists =
+          await FileSystemEntity.type(linkPath) !=
+          FileSystemEntityType.notFound;
       if (!exists) return false;
 
       // Використовуємо platformService для перевірки
@@ -192,7 +198,9 @@ class ModManagerService {
       if (saveModsPath == null) return false;
 
       final linkPath = path.join(saveModsPath!, modName);
-      final exists = await FileSystemEntity.type(linkPath) != FileSystemEntityType.notFound;
+      final exists =
+          await FileSystemEntity.type(linkPath) !=
+          FileSystemEntityType.notFound;
       if (!exists) return false;
 
       // Використовуємо platformService для видалення link
@@ -259,12 +267,12 @@ class ModManagerService {
     try {
       // Використовуємо platformService для видалення links
       final isLink = await _platformService.isModLink(filePath);
-      
+
       if (isLink) {
         await _platformService.removeModLink(filePath);
         return;
       }
-      
+
       // Якщо це не link, видаляємо звичайним способом
       final entity = await FileSystemEntity.type(filePath);
       if (entity == FileSystemEntityType.directory) {
@@ -279,7 +287,9 @@ class ModManagerService {
 
   /// Імпортує нові моди з вказаних папок
   /// Повертає список імпортованих модів та їх автоматично визначених тегів персонажів
-  Future<(List<String>, Map<String, String>)> importMods(List<String> folderPaths) async {
+  Future<(List<String>, Map<String, String>)> importMods(
+    List<String> folderPaths,
+  ) async {
     try {
       final (valid, _) = await validatePaths();
       if (!valid) return (<String>[], <String, String>{});
@@ -325,7 +335,8 @@ class ModManagerService {
   /// Визначає персонажа з назви моду
   Future<String?> _detectCharacterFromName(String modName) async {
     final nameLower = modName.toLowerCase();
-    
+    final hookType = _configService.currentProfile?.hookType ?? 'zzz';
+
     // Спробуємо знайти персонажа в INI файлах моду
     try {
       final modsPath = _configService.modsPath;
@@ -334,123 +345,93 @@ class ModManagerService {
       } else {
         final modPath = path.join(modsPath, modName);
         final modDir = Directory(modPath);
-      
-      if (await modDir.exists()) {
-        // Шукаємо INI файли
-        final iniFiles = await modDir
-            .list(recursive: true)
-            .where((entity) => 
-                entity is File && 
-                path.extension(entity.path).toLowerCase() == '.ini')
-            .cast<File>()
-            .toList();
-        
-        for (final iniFile in iniFiles) {
-          try {
-            final content = await iniFile.readAsString();
-            final contentLower = content.toLowerCase();
-            
-            // Шукаємо в Header або секціях INI
-            final charFromIni = _findCharacterInText(contentLower);
-            if (charFromIni != null) {
-              print('ModManager: Виявлено персонажа "$charFromIni" в INI файлі ${path.basename(iniFile.path)} моду "$modName"');
-              return charFromIni;
+
+        if (await modDir.exists()) {
+          // Шукаємо INI файли
+          final iniFiles = await modDir
+              .list(recursive: true)
+              .where(
+                (entity) =>
+                    entity is File &&
+                    path.extension(entity.path).toLowerCase() == '.ini',
+              )
+              .cast<File>()
+              .toList();
+
+          for (final iniFile in iniFiles) {
+            try {
+              final content = await iniFile.readAsString();
+              final contentLower = content.toLowerCase();
+
+              // Шукаємо в Header або секціях INI
+              final charFromIni = _findCharacterInText(contentLower, hookType);
+              if (charFromIni != null) {
+                print(
+                  'ModManager: Виявлено персонажа "$charFromIni" в INI файлі ${path.basename(iniFile.path)} моду "$modName"',
+                );
+                return charFromIni;
+              }
+            } catch (e) {
+              // Ігноруємо помилки читання окремих файлів
             }
-          } catch (e) {
-            // Ігноруємо помилки читання окремих файлів
+          }
+
+          // Також перевіряємо імена папок всередині моду
+          final subdirs = await modDir
+              .list(recursive: false)
+              .where((entity) => entity is Directory)
+              .cast<Directory>()
+              .toList();
+
+          for (final subdir in subdirs) {
+            final subdirName = path.basename(subdir.path).toLowerCase();
+            final charFromSubdir = _findCharacterInText(subdirName, hookType);
+            if (charFromSubdir != null) {
+              print(
+                'ModManager: Виявлено персонажа "$charFromSubdir" в папці "$subdirName" моду "$modName"',
+              );
+              return charFromSubdir;
+            }
           }
         }
-        
-        // Також перевіряємо імена папок всередині моду
-        final subdirs = await modDir
-            .list(recursive: false)
-            .where((entity) => entity is Directory)
-            .cast<Directory>()
-            .toList();
-        
-        for (final subdir in subdirs) {
-          final subdirName = path.basename(subdir.path).toLowerCase();
-          final charFromSubdir = _findCharacterInText(subdirName);
-          if (charFromSubdir != null) {
-            print('ModManager: Виявлено персонажа "$charFromSubdir" в папці "$subdirName" моду "$modName"');
-            return charFromSubdir;
-          }
-        }
-      }
       }
     } catch (e) {
       print('ModManager: Помилка пошуку в файлах моду "$modName": $e');
     }
-    
-    // Мапа персонажів з альтернативними іменами для кращого розпізнавання
-    final characterAliases = <String, List<String>>{
-      'alice': ['alice'],
-      'anby': ['anby'],
-      'anton': ['anton'],
-      'astra': ['astra', 'astrayao', 'astra yao'],
-      'belle': ['belle'],
-      'ben': ['ben', 'bigger', 'ben bigger'],
-      'billy': ['billy', 'billyherinkton', 'billy kid'],
-      'burnice': ['burnice', 'burnice white'],
-      'caesar': ['caesar', 'caesar king'],
-      'corin': ['corin', 'corin wickes'],
-      'ellen': ['ellen', 'ellen joe'],
-      'evelyn': ['evelyn'],
-      'grace': ['grace', 'grace howard'],
-      'harumasa': ['harumasa', 'asaba harumasa'],
-      'hugo': ['hugo'],
-      'jane': ['jane', 'janedoe', 'jane doe'],
-      'jufufu': ['jufufu', 'ju fufu'],
-      'koleda': ['koleda', 'koleda belobog'],
-      'lighter': ['lighter', 'lighter lorenz'],
-      'lucy': ['lucy', 'lucy kushinada'],
-      'lycaon': ['lycaon', 'von lycaon', 'vonlycaon'],
-      'miyabi': ['miyabi', 'hoshimi miyabi'],
-      'nekomata': ['nekomata', 'nekomiya mana'],
-      'nicole': ['nicole', 'nicole demara'],
-      'orphie': ['orphie', 'orphiemagus', 'orphie magus'],
-      'panyinhu': ['panyinhu', 'pan yinhu'],
-      'piper': ['piper', 'piper wheel'],
-      'pulchra': ['pulchra'],
-      'quinqiy': ['quinqiy', 'qingyi'],
-      'rina': ['rina', 'alexandrina'],
-      'seed': ['seed'],
-      'seth': ['seth', 'seth lowell'],
-      'solder0anby': ['solder0anby', 'soldier 0', 'soldier0'],
-      'solder11': ['solder11', 'soldier 11', 'soldier11'],
-      'soukaku': ['soukaku'],
-      'trigger': ['trigger'],
-      'vivian': ['vivian'],
-      'wise': ['wise'],
-      'yanagi': ['yanagi', 'tsukishiro yanagi'],
-      'yixuan': ['yixuan'],
-      'yuzuha': ['yuzuha'],
-      'zhuyuan': ['zhuyuan', 'zhu yuan'],
-    };
+
+    // Отримуємо мапу персонажів залежно від типу гри
+    final characterAliases = _getCharacterAliases(hookType);
 
     // Спочатку шукаємо повні збіги для точності
     for (final entry in characterAliases.entries) {
       final charId = entry.key;
       final aliases = entry.value;
-      
+
       for (final alias in aliases) {
         // Шукаємо як окреме слово з границями
-        final pattern = RegExp(r'\b' + RegExp.escape(alias) + r'\b', caseSensitive: false);
+        final pattern = RegExp(
+          r'\b' + RegExp.escape(alias) + r'\b',
+          caseSensitive: false,
+        );
         if (pattern.hasMatch(nameLower)) {
-          print('ModManager: Виявлено персонажа "$charId" (збіг: "$alias") в "$modName"');
+          print(
+            'ModManager: Виявлено персонажа "$charId" (збіг: "$alias") в "$modName"',
+          );
           return charId;
         }
       }
     }
-    
+
     // Якщо не знайшли повну збіг, шукаємо часткові збіги (як раніше)
     for (final entry in characterAliases.entries) {
       final charId = entry.key;
       final aliases = entry.value;
-      
+
       for (final alias in aliases) {
         if (nameLower.contains(alias)) {
-          print('ModManager: Виявлено персонажа "$charId" (частковий збіг: "$alias") в "$modName"');
+          print(
+            'ModManager: Виявлено персонажа "$charId" (частковий збіг: "$alias") в "$modName"',
+          );
           return charId;
         }
       }
@@ -459,12 +440,18 @@ class ModManagerService {
     print('ModManager: Не вдалося визначити персонажа для "$modName"');
     return null;
   }
-  
-  /// Допоміжний метод для пошуку персонажа в тексті
-  String? _findCharacterInText(String text) {
-    final textLower = text.toLowerCase();
-    
-    final characterAliases = <String, List<String>>{
+
+  /// Повертає мапу псевдонімів персонажів залежно від типу гри
+  Map<String, List<String>> _getCharacterAliases(String hookType) {
+    if (hookType == 'genshin') {
+      return _getGenshinCharacterAliases();
+    }
+    return _getZZZCharacterAliases();
+  }
+
+  /// Мапа персонажів ZZZ з альтернативними іменами
+  Map<String, List<String>> _getZZZCharacterAliases() {
+    return <String, List<String>>{
       'alice': ['alice'],
       'anby': ['anby'],
       'anton': ['anton'],
@@ -508,32 +495,147 @@ class ModManagerService {
       'yuzuha': ['yuzuha'],
       'zhuyuan': ['zhuyuan', 'zhu yuan'],
     };
-    
+  }
+
+  /// Мапа персонажів Genshin Impact з альтернативними іменами
+  Map<String, List<String>> _getGenshinCharacterAliases() {
+    return <String, List<String>>{
+      'albedo': ['albedo'],
+      'alhaitham': ['alhaitham', 'al haitham', 'al-haitham'],
+      'aloy': ['aloy'],
+      'arlecchino': ['arlecchino', 'arleccino'],
+      'ayaka': ['ayaka', 'kamisato ayaka', 'kamisatoayaka'],
+      'ayato': ['ayato', 'kamisato ayato', 'kamisatoayato'],
+      'baizhu': ['baizhu', 'bai zhu'],
+      'chasca': ['chasca'],
+      'chiori': ['chiori'],
+      'citlali': ['citlali'],
+      'clorinde': ['clorinde'],
+      'cyno': ['cyno'],
+      'dehya': ['dehya'],
+      'diluc': ['diluc'],
+      'emilie': ['emilie'],
+      'escoffier': ['escoffier'],
+      'eula': ['eula'],
+      'flins': ['flins'],
+      'furina': ['furina', 'focalors'],
+      'ganyu': ['ganyu', 'gan yu'],
+      'hutao': ['hutao', 'hu tao', 'hu-tao', 'hutau'],
+      'itto': ['itto', 'arataki itto', 'aratakiitto', 'arataki'],
+      'jean': ['jean'],
+      'kazuha': ['kazuha', 'kaedehara kazuha', 'kaedeharakazuha', 'kaedehara'],
+      'keqing': ['keqing', 'ke qing', 'keching'],
+      'kinich': ['kinich'],
+      'klee': ['klee'],
+      'kokomi': [
+        'kokomi',
+        'sangonomiya kokomi',
+        'sangonomiyakokomi',
+        'sangonomiya',
+      ],
+      'lyney': ['lyney'],
+      'mavuika': ['mavuika'],
+      'mona': ['mona'],
+      'mualani': ['mualani'],
+      'nahida': ['nahida'],
+      'navia': ['navia'],
+      'neuvillette': ['neuvillette', 'neuvilette'],
+      'nilou': ['nilou', 'ni lou'],
+      'qiqi': ['qiqi', 'qi qi'],
+      'raiden': ['raiden', 'raiden shogun', 'ei', 'shogun', 'baal'],
+      'shenhe': ['shenhe', 'shen he'],
+      'sigewinne': ['sigewinne'],
+      'tartaglia': ['tartaglia', 'childe'],
+      'tighnari': ['tighnari'],
+      'venti': ['venti'],
+      'wanderer': ['wanderer', 'scaramouche', 'scara'],
+      'wriothesley': ['wriothesley'],
+      'xiao': ['xiao'],
+      'xianyun': ['xianyun', 'cloud retainer', 'cloudretainer'],
+      'xilonen': ['xilonen'],
+      'yae': ['yae', 'yae miko', 'yaemiko'],
+      'yelan': ['yelan'],
+      'yoimiya': ['yoimiya'],
+      'zhongli': ['zhongli'],
+      'aino': ['aino'],
+      'amber': ['amber'],
+      'barbara': ['barbara', 'barbruh'],
+      'beidou': ['beidou', 'bei dou'],
+      'bennett': ['bennett', 'bennet', 'benny'],
+      'candace': ['candace'],
+      'charlotte': ['charlotte'],
+      'chevreuse': ['chevreuse'],
+      'chongyun': ['chongyun'],
+      'collei': ['collei'],
+      'dahlia': ['dahlia'],
+      'diona': ['diona'],
+      'dori': ['dori'],
+      'faruzan': ['faruzan'],
+      'fischl': ['fischl', 'fishl'],
+      'freminet': ['freminet'],
+      'gaming': ['gaming'],
+      'gorou': ['gorou'],
+      'heizou': ['heizou', 'shikanoin heizou', 'shikanoinheizou'],
+      'kachina': ['kachina'],
+      'kaeya': ['kaeya'],
+      'kaveh': ['kaveh'],
+      'kujou': ['kujou', 'kujou sara', 'sara'],
+      'kuki': ['kuki', 'kuki shinobu', 'shinobu'],
+      'layla': ['layla'],
+      'lisa': ['lisa'],
+      'lynette': ['lynette'],
+      'mika': ['mika'],
+      'ningguang': ['ningguang', 'ning guang'],
+      'noelle': ['noelle'],
+      'ororon': ['ororon'],
+      'razor': ['razor'],
+      'rosaria': ['rosaria'],
+      'sayu': ['sayu'],
+      'sethos': ['sethos'],
+      'sucrose': ['sucrose'],
+      'thoma': ['thoma'],
+      'traveler': ['traveler', 'aether', 'lumine'],
+      'xiangling': ['xiangling', 'xiang ling', 'xiang-ling'],
+      'xingqiu': ['xingqiu', 'xing qiu', 'xing-qiu', 'xingqui'],
+      'xinyan': ['xinyan', 'xin yan'],
+      'yaoyao': ['yaoyao', 'yao yao'],
+      'yunjin': ['yunjin', 'yun jin'],
+    };
+  }
+
+  /// Допоміжний метод для пошуку персонажа в тексті
+  String? _findCharacterInText(String text, String hookType) {
+    final textLower = text.toLowerCase();
+    final characterAliases = _getCharacterAliases(hookType);
+
     // Спочатку шукаємо повні збіги
     for (final entry in characterAliases.entries) {
       final charId = entry.key;
       final aliases = entry.value;
-      
+
       for (final alias in aliases) {
-        final pattern = RegExp(r'\b' + RegExp.escape(alias) + r'\b', caseSensitive: false);
+        final pattern = RegExp(
+          r'\b' + RegExp.escape(alias) + r'\b',
+          caseSensitive: false,
+        );
         if (pattern.hasMatch(textLower)) {
           return charId;
         }
       }
     }
-    
+
     // Часткові збіги
     for (final entry in characterAliases.entries) {
       final charId = entry.key;
       final aliases = entry.value;
-      
+
       for (final alias in aliases) {
         if (textLower.contains(alias)) {
           return charId;
         }
       }
     }
-    
+
     return null;
   }
 
@@ -547,7 +649,7 @@ class ModManagerService {
       for (final modName in modNames) {
         // Перевіряємо чи вже є тег для цього моду
         final existingTag = _configService.modCharacterTags[modName];
-        
+
         // Якщо тег вже є і він не 'unknown', пропускаємо
         if (existingTag != null && existingTag != 'unknown') {
           continue;
@@ -570,19 +672,17 @@ class ModManagerService {
   /// Рекурсивно копіює директорію
   Future<void> _copyDirectory(Directory source, Directory destination) async {
     await destination.create(recursive: true);
-    
+
     await for (final entity in source.list(recursive: false)) {
       if (entity is Directory) {
-        final newDirectory = Directory(path.join(
-          destination.path,
-          path.basename(entity.path),
-        ));
+        final newDirectory = Directory(
+          path.join(destination.path, path.basename(entity.path)),
+        );
         await _copyDirectory(entity, newDirectory);
       } else if (entity is File) {
-        final newFile = File(path.join(
-          destination.path,
-          path.basename(entity.path),
-        ));
+        final newFile = File(
+          path.join(destination.path, path.basename(entity.path)),
+        );
         await entity.copy(newFile.path);
       }
     }
@@ -596,12 +696,17 @@ class ModManagerService {
 
       final characterPath = path.join(modsPath!, characterId);
       final characterDir = Directory(characterPath);
-      
+
       if (!await characterDir.exists()) return null;
 
-      return await _iniParser.parseCharacterDirectory(characterId, characterPath);
+      return await _iniParser.parseCharacterDirectory(
+        characterId,
+        characterPath,
+      );
     } catch (e) {
-      print('ModManagerService: Помилка зчитування keybinds для $characterId: $e');
+      print(
+        'ModManagerService: Помилка зчитування keybinds для $characterId: $e',
+      );
       return null;
     }
   }
@@ -611,10 +716,12 @@ class ModManagerService {
   Future<Map<String, CharacterKeybinds>> getAllCharactersKeybinds() async {
     try {
       if (modsPath == null) return {};
-      
+
       return await _iniParser.parseAllCharacters(modsPath!);
     } catch (e) {
-      print('ModManagerService: Помилка зчитування keybinds для всіх персонажів: $e');
+      print(
+        'ModManagerService: Помилка зчитування keybinds для всіх персонажів: $e',
+      );
       return {};
     }
   }
@@ -625,10 +732,15 @@ class ModManagerService {
     try {
       if (modsPath == null) return null;
       final modPath = path.join(modsPath!, modId);
-      final keybindsData = await _iniParser.parseCharacterDirectory(modId, modPath);
+      final keybindsData = await _iniParser.parseCharacterDirectory(
+        modId,
+        modPath,
+      );
       return keybindsData?.keybinds;
     } catch (e) {
-      print('ModManagerService: Помилка завантаження keybinds для моду $modId: $e');
+      print(
+        'ModManagerService: Помилка завантаження keybinds для моду $modId: $e',
+      );
       return null;
     }
   }
@@ -640,25 +752,27 @@ class ModManagerService {
   ) async {
     try {
       print('ModManagerService: Завантаження keybinds для модів...');
-      
+
       final updatedCharacters = <CharacterInfo>[];
-      
+
       for (final character in characters) {
         final updatedMods = <ModInfo>[];
-        
+
         for (final mod in character.skins) {
           final keybinds = await getModKeybinds(mod.id);
           if (keybinds != null && keybinds.isNotEmpty) {
-            print('ModManagerService: Знайдено ${keybinds.length} keybinds для моду ${mod.id}');
+            print(
+              'ModManagerService: Знайдено ${keybinds.length} keybinds для моду ${mod.id}',
+            );
             updatedMods.add(mod.copyWith(keybinds: keybinds));
           } else {
             updatedMods.add(mod);
           }
         }
-        
+
         updatedCharacters.add(character.copyWith(skins: updatedMods));
       }
-      
+
       return updatedCharacters;
     } catch (e) {
       print('ModManagerService: Помилка збагачення модів keybinds: $e');

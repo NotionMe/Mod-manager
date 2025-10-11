@@ -34,7 +34,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   double _progress = 0;
-  
+
   StreamSubscription<FileSystemEvent>? _downloadsWatcher;
   final Set<String> _processedFiles = {};
   bool _isWatchingDownloads = false;
@@ -54,7 +54,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     _stopDownloadsWatcher();
     super.dispose();
   }
-  
+
   void _stopDownloadsWatcher() {
     _downloadsWatcher?.cancel();
     _downloadsWatcher = null;
@@ -215,7 +215,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     if (_isLinux) {
       return _buildLinuxMarketplaceView(isDarkMode);
     }
-    
+
     final url = _homeUri.toString();
     return Center(
       child: Padding(
@@ -262,7 +262,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       ),
     );
   }
-  
+
   Widget _buildLinuxMarketplaceView(bool isDarkMode) {
     return Center(
       child: Padding(
@@ -301,7 +301,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                     onPressed: _openBrowserAndStartWatching,
                     icon: const Icon(Icons.open_in_browser, size: 24),
                     label: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 16,
+                      ),
                       child: Text(
                         loc.t('marketplace.open_marketplace'),
                         style: const TextStyle(fontSize: 16),
@@ -319,8 +322,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                       icon: const Icon(Icons.stop),
                       tooltip: loc.t('marketplace.stop_watching'),
                       style: IconButton.styleFrom(
-                        backgroundColor: isDarkMode 
-                            ? Colors.red.shade700 
+                        backgroundColor: isDarkMode
+                            ? Colors.red.shade700
                             : Colors.red.shade600,
                       ),
                     ),
@@ -332,8 +335,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                       icon: const Icon(Icons.play_arrow),
                       tooltip: loc.t('marketplace.start_watching'),
                       style: IconButton.styleFrom(
-                        backgroundColor: isDarkMode 
-                            ? Colors.green.shade700 
+                        backgroundColor: isDarkMode
+                            ? Colors.green.shade700
                             : Colors.green.shade600,
                       ),
                     ),
@@ -345,13 +348,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDarkMode 
-                        ? Colors.green.shade900.withOpacity(0.3) 
+                    color: isDarkMode
+                        ? Colors.green.shade900.withOpacity(0.3)
                         : Colors.green.shade50,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isDarkMode 
-                          ? Colors.green.shade700 
+                      color: isDarkMode
+                          ? Colors.green.shade700
                           : Colors.green.shade300,
                     ),
                   ),
@@ -359,8 +362,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                     children: [
                       Icon(
                         Icons.downloading,
-                        color: isDarkMode 
-                            ? Colors.green.shade300 
+                        color: isDarkMode
+                            ? Colors.green.shade300
                             : Colors.green.shade700,
                       ),
                       const SizedBox(width: 12),
@@ -368,8 +371,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                         child: Text(
                           loc.t('marketplace.watching_downloads'),
                           style: TextStyle(
-                            color: isDarkMode 
-                                ? Colors.green.shade200 
+                            color: isDarkMode
+                                ? Colors.green.shade200
                                 : Colors.green.shade900,
                           ),
                         ),
@@ -384,13 +387,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       ),
     );
   }
-  
+
   Future<void> _openBrowserAndStartWatching() async {
     final platformService = PlatformServiceFactory.getInstance();
     final url = _homeUri.toString();
-    
+
     final opened = await platformService.openUrlInBrowser(url);
-    
+
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -400,83 +403,81 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       );
       return;
     }
-    
+
     _startDownloadsWatcher();
   }
-  
+
   void _startDownloadsWatcher() {
     if (_isWatchingDownloads) return;
-    
+
     final platformService = PlatformServiceFactory.getInstance();
     final downloadsPath = platformService.getSystemDownloadsPath();
-    
+
     if (downloadsPath == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not find Downloads directory'),
-          ),
+          const SnackBar(content: Text('Could not find Downloads directory')),
         );
       }
       return;
     }
-    
+
     final downloadsDir = Directory(downloadsPath);
     if (!downloadsDir.existsSync()) {
       downloadsDir.createSync(recursive: true);
     }
-    
+
     setState(() {
       _isWatchingDownloads = true;
     });
-    
-    _downloadsWatcher = downloadsDir.watch(events: FileSystemEvent.create).listen(
-      (event) {
-        if (event is FileSystemCreateEvent) {
-          _handleNewDownload(event.path);
-        }
-      },
-    );
-    
+
+    _downloadsWatcher = downloadsDir
+        .watch(events: FileSystemEvent.create)
+        .listen((event) {
+          if (event is FileSystemCreateEvent) {
+            _handleNewDownload(event.path);
+          }
+        });
+
     print('LinuxMarketplace: Watching $downloadsPath for new downloads');
   }
-  
+
   Future<void> _handleNewDownload(String filePath) async {
     if (_processedFiles.contains(filePath)) return;
-    
+
     final extension = path.extension(filePath).toLowerCase();
     if (extension != '.zip' && extension != '.rar' && extension != '.7z') {
       return;
     }
-    
+
     _processedFiles.add(filePath);
-    
+
     print('LinuxMarketplace: Виявлено новий файл: $filePath');
-    
+
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     final file = File(filePath);
     if (!await file.exists()) {
       print('LinuxMarketplace: Файл не існує: $filePath');
       return;
     }
-    
+
     print('LinuxMarketplace: Очікування завершення завантаження...');
     if (!await _waitForFileToBeReady(file)) {
       print('LinuxMarketplace: Файл не готовий після очікування');
       return;
     }
-    
+
     print('LinuxMarketplace: Файл готовий: ${file.lengthSync()} bytes');
-    
+
     if (!mounted) return;
-    
+
     final choice = await _showDownloadChoiceDialog(
       context,
       suggestedName: path.basename(filePath),
       url: filePath,
     );
-    
+
     if (choice != _MarketplaceDownloadChoice.cancel && mounted) {
       if (choice == _MarketplaceDownloadChoice.downloadAndInstall) {
         await _installArchiveFromPath(filePath);
@@ -493,28 +494,30 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       }
     }
   }
-  
+
   Future<bool> _waitForFileToBeReady(File file) async {
     const maxAttempts = 120;
     int previousSize = -1;
     int stableCount = 0;
-    
+
     for (int i = 0; i < maxAttempts; i++) {
       await Future.delayed(const Duration(milliseconds: 1000));
-      
+
       if (!await file.exists()) {
         print('LinuxMarketplace: Файл зник, спроба $i/$maxAttempts');
         return false;
       }
-      
+
       try {
         final currentSize = await file.length();
-        print('LinuxMarketplace: Перевірка розміру: $currentSize bytes (спроба ${i+1}/$maxAttempts)');
-        
+        print(
+          'LinuxMarketplace: Перевірка розміру: $currentSize bytes (спроба ${i + 1}/$maxAttempts)',
+        );
+
         if (currentSize == previousSize && currentSize > 0) {
           stableCount++;
           print('LinuxMarketplace: Розмір стабільний ($stableCount/3)');
-          
+
           if (stableCount >= 3) {
             print('LinuxMarketplace: Файл готовий! Розмір: $currentSize bytes');
             return true;
@@ -522,27 +525,27 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         } else {
           stableCount = 0;
         }
-        
+
         previousSize = currentSize;
       } catch (e) {
         print('LinuxMarketplace: Помилка перевірки розміру файлу: $e');
         await Future.delayed(const Duration(milliseconds: 1000));
       }
     }
-    
+
     print('LinuxMarketplace: Таймаут очікування (120 секунд)');
     return false;
   }
-  
+
   Future<void> _installArchiveFromPath(String filePath) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    
+
     try {
       final file = File(filePath);
       final installResult = await _installArchive(file);
-      
+
       if (!mounted) return;
-      
+
       installResult.when(
         success: (mods, message) {
           final importedMods = mods.join(', ');
@@ -623,10 +626,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       shouldOverrideUrlLoading: (controller, action) async {
         final url = action.request.url?.toString() ?? '';
         final uri = Uri.tryParse(url);
-        
+
         if (uri != null) {
           final extension = path.extension(uri.path).toLowerCase();
-          if (extension == '.zip' || extension == '.rar' || extension == '.7z') {
+          if (extension == '.zip' ||
+              extension == '.rar' ||
+              extension == '.7z') {
             final suggestedName = path.basename(uri.path);
             final choice = await _showDownloadChoiceDialog(
               context,
@@ -637,13 +642,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               await _handleDownload(
                 uri: uri,
                 suggestedName: suggestedName,
-                autoInstall: choice == _MarketplaceDownloadChoice.downloadAndInstall,
+                autoInstall:
+                    choice == _MarketplaceDownloadChoice.downloadAndInstall,
               );
             }
             return NavigationActionPolicy.CANCEL;
           }
         }
-        
+
         return NavigationActionPolicy.ALLOW;
       },
       onLoadStart: (controller, url) {
@@ -904,7 +910,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     final targetFile = File(path.join(tempDir.path, filename));
 
     final httpClient = HttpClient();
-    
+
     // Fix SSL certificate issues on Windows and Linux
     if (Platform.isWindows || Platform.isLinux) {
       httpClient.badCertificateCallback = (cert, host, port) => true;
@@ -924,25 +930,28 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       int lastProgressUpdate = 0;
       const progressUpdateThreshold = 262144; // Оновлювати прогрес кожні 256 KB
 
-      await response.listen(
-        (chunk) {
-          received += chunk.length;
-          sink.add(chunk);
-          
-          // Оновлювати прогрес не частіше ніж кожні 256 KB
-          if (received - lastProgressUpdate >= progressUpdateThreshold || received == total) {
-            if (total > 0) {
-              progressNotifier.value = min(received / total, 1);
-            } else {
-              progressNotifier.value = null;
-            }
-            lastProgressUpdate = received;
-          }
-        },
-        onDone: () {},
-        onError: (e) => throw e,
-        cancelOnError: true,
-      ).asFuture();
+      await response
+          .listen(
+            (chunk) {
+              received += chunk.length;
+              sink.add(chunk);
+
+              // Оновлювати прогрес не частіше ніж кожні 256 KB
+              if (received - lastProgressUpdate >= progressUpdateThreshold ||
+                  received == total) {
+                if (total > 0) {
+                  progressNotifier.value = min(received / total, 1);
+                } else {
+                  progressNotifier.value = null;
+                }
+                lastProgressUpdate = received;
+              }
+            },
+            onDone: () {},
+            onError: (e) => throw e,
+            cancelOnError: true,
+          )
+          .asFuture();
 
       await sink.flush();
       await sink.close();
@@ -964,7 +973,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
     final targetPath = path.join(downloadsDir.path, filename);
     await file.copy(targetPath);
-    
+
     try {
       if (file.parent.path.contains('zzz_marketplace_download_')) {
         await file.parent.delete(recursive: true);
@@ -974,14 +983,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     } catch (e) {
       print('Marketplace: Помилка видалення файлу після копіювання: $e');
     }
-    
+
     return targetPath;
   }
 
   Future<_InstallResult> _installArchive(File archiveFile) async {
     print('Marketplace: Початок інсталяції архіву: ${archiveFile.path}');
     print('Marketplace: Розмір файлу: ${await archiveFile.length()} bytes');
-    
+
     final config = await ApiService.getConfig();
     final modsPath = config['mods_path'] ?? '';
 
@@ -1034,23 +1043,28 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       }
     }
   }
-  
+
   Future<void> _safeDeleteArchive(File archiveFile) async {
     try {
       final platformService = PlatformServiceFactory.getInstance();
       final systemDownloadsPath = platformService.getSystemDownloadsPath();
-      
+
       final archiveParentPath = archiveFile.parent.path;
-      
-      final isInSystemDownloads = systemDownloadsPath != null && 
+
+      final isInSystemDownloads =
+          systemDownloadsPath != null &&
           path.equals(archiveParentPath, systemDownloadsPath);
-      
+
       if (isInSystemDownloads) {
         await archiveFile.delete();
-        print('Marketplace: Видалено тільки файл з системної Downloads: ${archiveFile.path}');
+        print(
+          'Marketplace: Видалено тільки файл з системної Downloads: ${archiveFile.path}',
+        );
       } else {
         await archiveFile.parent.delete(recursive: true);
-        print('Marketplace: Видалено тимчасову директорію: ${archiveFile.parent.path}');
+        print(
+          'Marketplace: Видалено тимчасову директорію: ${archiveFile.parent.path}',
+        );
       }
     } catch (e) {
       print('Marketplace: Помилка видалення архіву: $e');

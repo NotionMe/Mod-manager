@@ -153,6 +153,7 @@
       "generic": "Помилка: {message}"
     },
     "sections": {
+      "profiles": "Профілі",
       "paths": "Шляхи до модів",
       "language": "Мова",
       "auto_tag": "Автотегування",
@@ -182,6 +183,23 @@
     },
     "appearance": {
       "dark_mode": "Темна тема"
+    },
+    "profiles": {
+      "select": "Активний профіль",
+      "add": "Додати профіль",
+      "remove": "Видалити профіль",
+      "name": "Назва профілю",
+      "hook_type": "Тип гри",
+      "types": {
+        "zzz": "Zenless Zone Zero",
+        "genshin": "Genshin Impact",
+        "custom": "Користувацький"
+      },
+      "default_name": "Новий профіль",
+      "create_title": "Створити профіль",
+      "delete_title": "Видалити профіль?",
+      "delete_message": "Це видалить лише налаштування профілю. Моди залишаться без змін.",
+      "delete_error": "Не вдалося видалити профіль"
     },
     "auto_tag": {
       "title": "Автоматичне тегування",
@@ -249,8 +267,15 @@
     "en": "English",
     "uk": "Українська"
   },
+  "profiles": {
+    "select_title": "Виберіть профіль",
+    "switch_tooltip": "Перемкнути профіль"
+  },
   "common": {
-    "unknown": "Невідомо"
+    "unknown": "Невідомо",
+    "cancel": "Скасувати",
+    "create": "Створити",
+    "delete": "Видалити"
   },
   "welcome": {
     "title": "Ласкаво просимо до ZZZ Mod Manager!",

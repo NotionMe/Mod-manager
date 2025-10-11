@@ -14,16 +14,10 @@ class ArchiveExtractionResult {
   });
 
   factory ArchiveExtractionResult.successResult(List<String> folders) =>
-      ArchiveExtractionResult(
-        success: true,
-        extractedFolders: folders,
-      );
+      ArchiveExtractionResult(success: true, extractedFolders: folders);
 
   factory ArchiveExtractionResult.failure(String error) =>
-      ArchiveExtractionResult(
-        success: false,
-        error: error,
-      );
+      ArchiveExtractionResult(success: false, error: error);
 }
 
 class ArchiveService {
@@ -39,7 +33,8 @@ class ArchiveService {
     try {
       print('ArchiveService: Розархівування ${archiveFile.path}');
 
-      final tempExtractDir = destinationDir ??
+      final tempExtractDir =
+          destinationDir ??
           await Directory.systemTemp.createTemp('zzz_archive_extract_');
 
       final extension = path.extension(archiveFile.path).toLowerCase();
@@ -80,7 +75,10 @@ class ArchiveService {
     }
   }
 
-  static Future<bool> _extractZip(File archiveFile, Directory destination) async {
+  static Future<bool> _extractZip(
+    File archiveFile,
+    Directory destination,
+  ) async {
     try {
       print('ArchiveService: Читання ZIP файлу...');
       final bytes = await archiveFile.readAsBytes();

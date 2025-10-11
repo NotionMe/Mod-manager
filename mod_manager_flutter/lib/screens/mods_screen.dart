@@ -12,11 +12,13 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:cross_file/cross_file.dart';
 import '../core/constants.dart';
 import '../models/character_info.dart';
+import '../models/game_profile.dart';
 import '../models/keybind_info.dart';
 import '../services/api_service.dart';
 import '../services/archive_service.dart';
 import '../utils/state_providers.dart';
 import '../utils/zzz_characters.dart';
+import '../utils/genshin_characters.dart';
 import '../utils/path_helper.dart';
 import '../l10n/app_localizations.dart';
 import 'components/mode_toggle_widget.dart';
@@ -52,6 +54,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
   // Prevent multiple simultaneous operations
   bool _isOperationInProgress = false;
   bool _isLoadingMods = false;
+  bool _hasCompletedInitialLoad = false;
 
   // Cache for preventing unnecessary rebuilds
   List<CharacterInfo>? _lastCharactersState;
@@ -119,6 +122,22 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     // Перезавантажуємо моди, щоб оновити UI з новими тегами
     // Це необхідно, бо мод може переміститись в іншу категорію персонажа
     await loadMods(showLoading: false);
+  }
+
+  /// Повертає список персонажів залежно від типу гри
+  List<String> _getCharactersListForHookType(String hookType) {
+    if (hookType == 'genshin') {
+      return genshinCharacters;
+    }
+    return zzzCharacters;
+  }
+
+  /// Повертає відображуване ім'я персонажа залежно від типу гри
+  String _getCharacterDisplayNameForHookType(String charId, String hookType) {
+    if (hookType == 'genshin') {
+      return getGenshinCharacterDisplayName(charId);
+    }
+    return getCharacterDisplayName(charId);
   }
 
   Future<void> loadMods({bool showLoading = true}) async {
@@ -221,14 +240,20 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
         );
       }
 
-      // Додаємо інших персонажів
+      // Додаємо інших персонажів залежно від типу гри
+      final hookType = configService.currentProfile.hookType;
+      final charactersList = _getCharactersListForHookType(hookType);
+
+      // Визначаємо шлях до іконок залежно від типу гри
+      final iconFolder = hookType == 'genshin' ? 'genshin' : 'characters';
+
       characters.addAll(
-        zzzCharacters
+        charactersList
             .map((charId) {
               return CharacterInfo(
                 id: charId,
-                name: getCharacterDisplayName(charId),
-                iconPath: 'assets/characters/$charId.png',
+                name: _getCharacterDisplayNameForHookType(charId, hookType),
+                iconPath: 'assets/$iconFolder/$charId.png',
                 skins: characterMods[charId] ?? [],
               );
             })
@@ -239,7 +264,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       // Збагачуємо персонажів keybinds з INI файлів
       try {
         final modManagerService = await ApiService.getModManagerService();
-        characters = await modManagerService.enrichCharactersWithKeybinds(characters);
+        characters = await modManagerService.enrichCharactersWithKeybinds(
+          characters,
+        );
       } catch (e) {
         print('Failed to load keybinds: $e');
         // Продовжуємо без keybinds у разі помилки
@@ -283,6 +310,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       });
     } finally {
       _isLoadingMods = false;
+      _hasCompletedInitialLoad = true;
     }
   }
 
@@ -730,8 +758,16 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     }
   }
 
-  void _showEditDialog(ModInfo mod) {
+  void _showEditDialog(ModInfo mod) async {
     final selectedChar = ValueNotifier<String>(mod.characterId);
+
+    // Отримуємо поточний профіль та hookType
+    final configService = await ApiService.getConfigService();
+    final hookType = configService.currentProfile.hookType;
+    final charactersList = _getCharactersListForHookType(hookType);
+    final iconFolder = hookType == 'genshin' ? 'genshin' : 'characters';
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -755,9 +791,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
               valueListenable: selectedChar,
               builder: (context, value, _) {
                 return DropdownButtonFormField<String>(
-                  value: zzzCharacters.contains(value)
+                  value: charactersList.contains(value)
                       ? value
-                      : zzzCharacters.first,
+                      : charactersList.first,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -768,7 +804,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                     ),
                     isDense: true,
                   ),
-                  items: zzzCharacters.map((charId) {
+                  items: charactersList.map((charId) {
                     return DropdownMenuItem(
                       value: charId,
                       child: Row(
@@ -776,7 +812,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                           ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: Image.asset(
-                              'assets/characters/$charId.png',
+                              'assets/$iconFolder/$charId.png',
                               width: 24,
                               height: 24,
                               fit: BoxFit.cover,
@@ -788,7 +824,12 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(getCharacterDisplayName(charId)),
+                          Text(
+                            _getCharacterDisplayNameForHookType(
+                              charId,
+                              hookType,
+                            ),
+                          ),
                         ],
                       ),
                     );
@@ -861,7 +902,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
               decoration: InputDecoration(
                 labelText: 'Key Combination',
                 hintText: 'e.g., VK_F1, CTRL VK_A',
-                prefixIcon: const Icon(Icons.keyboard, color: Color(0xFFFBBF24)),
+                prefixIcon: const Icon(
+                  Icons.keyboard,
+                  color: Color(0xFFFBBF24),
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: Color(0xFF334155)),
@@ -872,7 +916,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFFBBF24), width: 2),
+                  borderSide: const BorderSide(
+                    color: Color(0xFFFBBF24),
+                    width: 2,
+                  ),
                 ),
               ),
               autofocus: true,
@@ -928,11 +975,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     );
   }
 
-  Future<void> _saveKeybindChange(ModInfo mod, KeybindInfo keybind, String newKey) async {
+  Future<void> _saveKeybindChange(
+    ModInfo mod,
+    KeybindInfo keybind,
+    String newKey,
+  ) async {
     try {
       final modManagerService = await ApiService.getModManagerService();
       final modsPath = modManagerService.modsPath;
-      
+
       if (modsPath == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -945,7 +996,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       // Знаходимо INI файл моду
       final modPath = path.join(modsPath, mod.id);
       final modDir = Directory(modPath);
-      
+
       if (!await modDir.exists()) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -958,15 +1009,18 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       // Шукаємо INI файли
       final iniFiles = await modDir
           .list(recursive: true)
-          .where((entity) => entity is File && entity.path.toLowerCase().endsWith('.ini'))
+          .where(
+            (entity) =>
+                entity is File && entity.path.toLowerCase().endsWith('.ini'),
+          )
           .cast<File>()
           .toList();
 
       if (iniFiles.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No INI file found')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('No INI file found')));
         }
         return;
       }
@@ -980,18 +1034,18 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
         for (int i = 0; i < lines.length; i++) {
           final line = lines[i].trim();
-          
+
           // Перевіряємо чи це наша секція
           if (line.toLowerCase() == '[${keybind.section.toLowerCase()}]') {
             inTargetSection = true;
             continue;
           }
-          
+
           // Перевіряємо чи почалась нова секція
           if (line.startsWith('[') && line.endsWith(']')) {
             inTargetSection = false;
           }
-          
+
           // Якщо ми в потрібній секції і знайшли рядок з key
           if (inTargetSection && line.toLowerCase().startsWith('key =')) {
             lines[i] = 'key = $newKey';
@@ -1005,7 +1059,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Keybind updated: ${keybind.displayName} → $newKey'),
+                content: Text(
+                  'Keybind updated: ${keybind.displayName} → $newKey',
+                ),
                 backgroundColor: const Color(0xFF10B981),
               ),
             );
@@ -1016,9 +1072,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
     } catch (e) {
       print('Error saving keybind: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving keybind: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error saving keybind: $e')));
       }
     }
   }
@@ -1062,7 +1118,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                   },
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -1091,7 +1150,10 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                         ),
                         const SizedBox(width: 10),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF0F172A),
                             borderRadius: BorderRadius.circular(6),
@@ -1221,6 +1283,21 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<GameProfile?>(selectedProfileProvider, (previous, next) {
+      if (previous?.id == next?.id) {
+        return;
+      }
+      if (previous == null && !_hasCompletedInitialLoad) {
+        return;
+      }
+
+      Future.microtask(() {
+        if (!mounted) return;
+        _loadTags();
+        loadMods();
+      });
+    });
+
     final characters = ref.watch(charactersProvider);
     final selectedIndex = ref.watch(selectedCharacterIndexProvider);
     final currentSkins = ref.watch(currentCharacterSkinsProvider);
@@ -1950,7 +2027,7 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       final archivesToExtract = <XFile>[];
       final successfullyExtractedArchives = <String>[];
       final tempFoldersToCleanup = <String>[];
-      
+
       for (final file in files) {
         // Перевіряємо чи це архів
         if (ArchiveService.isArchiveFile(file.path)) {
@@ -1967,31 +2044,37 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
       // Розархівуємо архіви
       if (archivesToExtract.isNotEmpty) {
-        print('ModsScreen: Розархівування ${archivesToExtract.length} архівів...');
-        
+        print(
+          'ModsScreen: Розархівування ${archivesToExtract.length} архівів...',
+        );
+
         for (final archiveFile in archivesToExtract) {
           final file = File(archiveFile.path);
-          
+
           if (!await file.exists()) {
             print('ModsScreen: Файл не існує: ${archiveFile.path}');
             continue;
           }
-          
-          final result = await ArchiveService.extractArchive(
-            archiveFile: file,
-          );
-          
+
+          final result = await ArchiveService.extractArchive(archiveFile: file);
+
           if (result.success && result.extractedFolders != null) {
             folderPaths.addAll(result.extractedFolders!);
             tempFoldersToCleanup.addAll(result.extractedFolders!);
             successfullyExtractedArchives.add(archiveFile.path);
-            print('ModsScreen: Розархівовано ${result.extractedFolders!.length} папок з ${archiveFile.name}');
+            print(
+              'ModsScreen: Розархівовано ${result.extractedFolders!.length} папок з ${archiveFile.name}',
+            );
           } else {
-            print('ModsScreen: Помилка розархівування ${archiveFile.name}: ${result.error}');
+            print(
+              'ModsScreen: Помилка розархівування ${archiveFile.name}: ${result.error}',
+            );
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Помилка розархівування ${archiveFile.name}: ${result.error}'),
+                  content: Text(
+                    'Помилка розархівування ${archiveFile.name}: ${result.error}',
+                  ),
                   backgroundColor: Colors.orange,
                 ),
               );
@@ -2079,7 +2162,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
       if (importedMods.isEmpty) {
         // Очищаємо тимчасові папки якщо імпорт не вдався
         if (tempFoldersToCleanup.isNotEmpty) {
-          print('ModsScreen: Очищення ${tempFoldersToCleanup.length} тимчасових папок (імпорт не вдався)...');
+          print(
+            'ModsScreen: Очищення ${tempFoldersToCleanup.length} тимчасових папок (імпорт не вдався)...',
+          );
           for (final tempPath in tempFoldersToCleanup) {
             try {
               final tempDir = Directory(tempPath);
@@ -2087,15 +2172,19 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
                 final parentDir = tempDir.parent;
                 if (parentDir.path.contains('zzz_archive_extract_')) {
                   await parentDir.delete(recursive: true);
-                  print('ModsScreen: Видалено тимчасову директорію: ${parentDir.path}');
+                  print(
+                    'ModsScreen: Видалено тимчасову директорію: ${parentDir.path}',
+                  );
                 }
               }
             } catch (e) {
-              print('ModsScreen: Помилка очищення тимчасової папки $tempPath: $e');
+              print(
+                'ModsScreen: Помилка очищення тимчасової папки $tempPath: $e',
+              );
             }
           }
         }
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -2132,7 +2221,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
       // Видаляємо успішно імпортовані архіви
       if (successfullyExtractedArchives.isNotEmpty) {
-        print('ModsScreen: Видалення ${successfullyExtractedArchives.length} архівів...');
+        print(
+          'ModsScreen: Видалення ${successfullyExtractedArchives.length} архівів...',
+        );
         for (final archivePath in successfullyExtractedArchives) {
           try {
             final archiveFile = File(archivePath);
@@ -2148,7 +2239,9 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
 
       // Очищаємо тимчасові папки після успішного імпорту
       if (tempFoldersToCleanup.isNotEmpty) {
-        print('ModsScreen: Очищення ${tempFoldersToCleanup.length} тимчасових папок...');
+        print(
+          'ModsScreen: Очищення ${tempFoldersToCleanup.length} тимчасових папок...',
+        );
         for (final tempPath in tempFoldersToCleanup) {
           try {
             final tempDir = Directory(tempPath);
@@ -2157,11 +2250,15 @@ class _ModsScreenState extends ConsumerState<ModsScreen>
               final parentDir = tempDir.parent;
               if (parentDir.path.contains('zzz_archive_extract_')) {
                 await parentDir.delete(recursive: true);
-                print('ModsScreen: Видалено тимчасову директорію: ${parentDir.path}');
+                print(
+                  'ModsScreen: Видалено тимчасову директорію: ${parentDir.path}',
+                );
               }
             }
           } catch (e) {
-            print('ModsScreen: Помилка очищення тимчасової папки $tempPath: $e');
+            print(
+              'ModsScreen: Помилка очищення тимчасової папки $tempPath: $e',
+            );
           }
         }
       }
